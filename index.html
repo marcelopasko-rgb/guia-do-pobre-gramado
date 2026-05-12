@@ -3245,11 +3245,33 @@ let currentUser = null;
 (async function initAuth() {
   if (_supabase) {
     try {
+      // Detecta token na URL (magic link / invite redirect)
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        // O SDK processa automaticamente o hash — aguarda o onAuthStateChange
+        _supabase.auth.onAuthStateChange(function(event, session) {
+          if (session && session.user) {
+            onLoginSuccess(session.user);
+            // Limpa o hash da URL sem recarregar
+            history.replaceState(null, '', window.location.pathname);
+          } else if (event === 'SIGNED_OUT') {
+            currentUser = null;
+            showLoginOverlay();
+          }
+        });
+        // Mostra loading enquanto processa
+        hideLoginOverlay();
+        return;
+      }
+
+      // Sem token na URL — verifica sessão existente
       const { data: { session } } = await _supabase.auth.getSession();
       if (session && session.user) { onLoginSuccess(session.user); return; }
+
       _supabase.auth.onAuthStateChange(function(event, session) {
         if (session && session.user) {
           onLoginSuccess(session.user);
+          history.replaceState(null, '', window.location.pathname);
         } else if (event === 'SIGNED_OUT') {
           currentUser = null;
           showLoginOverlay();
