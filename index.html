@@ -2919,7 +2919,7 @@ function renderComunidade() {
 
     <div class="login-header">
       <div class="login-brand-icon">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/><path d="M5 12H3"/><path d="M21 12h-2"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="#111" stroke-width="1.8"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
       </div>
       <div class="login-header-text">
         <div class="login-title">Guia do Pobre</div>
@@ -2927,21 +2927,14 @@ function renderComunidade() {
       </div>
     </div>
 
-    <!-- Tabs -->
-    <div class="login-tabs">
-      <button class="login-tab active" id="tab-login" onclick="switchTab('login')">Entrar</button>
-      <button class="login-tab" id="tab-signup" onclick="switchTab('signup')">Criar conta</button>
-    </div>
-
     <div class="login-body">
       <!-- Mensagem de erro/sucesso -->
       <div class="login-msg" id="login-msg"></div>
 
-      <!-- Nome (só no cadastro) -->
-      <div class="login-field" id="field-name" style="display:none;">
-        <label>Nome</label>
-        <input type="text" id="input-name" placeholder="Seu primeiro nome" autocomplete="given-name" />
-      </div>
+      <!-- Instrução -->
+      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+        Digite o e-mail usado na sua compra. Vamos enviar um link de acesso direto para a sua caixa de entrada.
+      </p>
 
       <!-- Email -->
       <div class="login-field">
@@ -2949,40 +2942,25 @@ function renderComunidade() {
         <input type="email" id="input-email" placeholder="voce@email.com" autocomplete="email" />
       </div>
 
-      <!-- Senha -->
-      <div class="login-field">
-        <label>Senha</label>
-        <input type="password" id="input-password" placeholder="••••••••" autocomplete="current-password" />
-        <button class="forgot-link" id="forgot-btn" onclick="handleForgotPassword()">Esqueci minha senha</button>
-      </div>
-
       <!-- CTA principal -->
-      <button class="login-cta" id="login-cta-btn" onclick="handleAuth()">
-        <span id="cta-text">Entrar no Guia</span>
+      <button class="login-cta" id="login-cta-btn" onclick="handleMagicLink()">
+        <span id="cta-text">Enviar link de acesso</span>
       </button>
 
-      <div class="login-divider">ou</div>
-
-      <!-- Google -->
-      <button class="login-social" onclick="handleGoogleLogin()">
-        <svg viewBox="0 0 24 24" fill="none">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-        </svg>
-        Continuar com Google
-      </button>
+      <!-- Sucesso -->
+      <div id="login-success-box" style="display:none;margin-top:16px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:16px;text-align:center;">
+        <div style="font-size:28px;margin-bottom:8px;">📬</div>
+        <div style="font-size:13px;font-weight:700;color:#4ade80;margin-bottom:4px;">Link enviado!</div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.6;">Verifique sua caixa de entrada e clique no botão de acesso. Não esqueça de checar o spam.</div>
+      </div>
     </div>
 
-    <!-- Entrar como visitante -->
-    <button class="login-guest" onclick="enterAsGuest()">
-      🗺 Explorar como visitante (sem conta)
-    </button>
-
-    <div class="login-footer" id="login-footer-text">
-      Novo por aqui?
-      <button onclick="switchTab('signup')">Criar conta grátis</button>
+    <!-- Suporte -->
+    <div style="padding:12px 24px 24px;text-align:center;">
+      <p style="font-size:11px;color:var(--muted);line-height:1.6;">
+        Comprou e não recebeu o e-mail?<br>
+        <a href="mailto:suporte@guiadopobre.com" style="color:var(--yellow);text-decoration:none;font-weight:700;">suporte@guiadopobre.com</a>
+      </p>
     </div>
   </div>
 </div>
@@ -2991,71 +2969,19 @@ function renderComunidade() {
      SUPABASE + AUTH JS
      ══════════════════════════════════════════ -->
 <script>
-// ── CONFIGURAÇÃO SUPABASE ──────────────────────────────────────────────────
-// Substitua pelos valores reais do seu projeto em https://app.supabase.com
+// ── CONFIGURAÇÃO SUPABASE ─────────────────────────────────────────────────
 const SUPABASE_URL  = 'https://jltxatuypkmchitkafkq.supabase.co';
 const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsdHhhdHV5cGttY2hpdGthZmtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg1NDA2ODMsImV4cCI6MjA5NDExNjY4M30.MjUcamBUOw_l03xDmld4eipIxY-1VM5uQTql1aRRD68';
 
-// ── DETECTA SE O SDK CARREGOU E CREDENCIAIS FORAM CONFIGURADAS ─────────────
-const supabaseConfigured = !SUPABASE_URL.includes('SEU_PROJETO');
 let _supabase = null;
 try {
-  if (supabaseConfigured && window.supabase) {
+  if (window.supabase) {
     _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
   }
-} catch(e) { console.warn('Supabase SDK não disponível, usando modo demo.', e); }
-
-// ── MOCK LOCAL (funciona sem Supabase configurado) ─────────────────────────
-const MOCK_USERS_KEY   = 'guia_mock_users_v1';
-const MOCK_SESSION_KEY = 'guia_mock_session_v1';
-
-function getMockUsers() {
-  try { return JSON.parse(localStorage.getItem(MOCK_USERS_KEY) || '[]'); } catch(e) { return []; }
-}
-function saveMockUsers(u) {
-  try { localStorage.setItem(MOCK_USERS_KEY, JSON.stringify(u)); } catch(e) {}
-}
-function getMockSession() {
-  try { return JSON.parse(sessionStorage.getItem(MOCK_SESSION_KEY) || 'null'); } catch(e) { return null; }
-}
-function saveMockSession(u) {
-  try { sessionStorage.setItem(MOCK_SESSION_KEY, JSON.stringify(u)); } catch(e) {}
-}
-function clearMockSession() {
-  try { sessionStorage.removeItem(MOCK_SESSION_KEY); } catch(e) {}
-}
-
-const authMock = {
-  async signIn(email, password) {
-    const users = getMockUsers();
-    const u = users.find(u => u.email === email && u.password === password);
-    if (!u) return { error: 'E-mail ou senha incorretos.' };
-    const user = { id: u.id, email: u.email, user_metadata: { full_name: u.name } };
-    saveMockSession(user);
-    return { user };
-  },
-  async signUp(email, password, name) {
-    const users = getMockUsers();
-    if (users.find(u => u.email === email)) return { error: 'Este e-mail já está cadastrado.' };
-    const nu = { id: 'u_' + Date.now(), email, password, name };
-    users.push(nu);
-    saveMockUsers(users);
-    const user = { id: nu.id, email, user_metadata: { full_name: name } };
-    saveMockSession(user);
-    return { user };
-  },
-  async resetPassword(email) {
-    const users = getMockUsers();
-    if (!users.find(u => u.email === email)) return { error: 'E-mail não encontrado.' };
-    return { ok: true };
-  },
-  getSession() { return getMockSession(); },
-  signOut() { clearMockSession(); }
-};
+} catch(e) { console.warn('Supabase SDK indisponível.', e); }
 
 // ── ESTADO ────────────────────────────────────────────────────────────────
 let currentUser = null;
-let currentTab  = 'login';
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 (async function initAuth() {
@@ -3063,14 +2989,15 @@ let currentTab  = 'login';
     try {
       const { data: { session } } = await _supabase.auth.getSession();
       if (session && session.user) { onLoginSuccess(session.user); return; }
-      _supabase.auth.onAuthStateChange(function(_event, session) {
-        if (session && session.user && !currentUser) onLoginSuccess(session.user);
-        else if (!session) currentUser = null;
+      _supabase.auth.onAuthStateChange(function(event, session) {
+        if (session && session.user) {
+          onLoginSuccess(session.user);
+        } else if (event === 'SIGNED_OUT') {
+          currentUser = null;
+          showLoginOverlay();
+        }
       });
     } catch(e) { console.error(e); }
-  } else {
-    const session = authMock.getSession();
-    if (session) { onLoginSuccess(session); return; }
   }
   showLoginOverlay();
 })();
@@ -3085,31 +3012,16 @@ function hideLoginOverlay() {
   if (ov) ov.classList.add('hidden');
 }
 
-// ── TAB SWITCHING ─────────────────────────────────────────────────────────
-function switchTab(tab) {
-  currentTab = tab;
-  document.getElementById('tab-login').classList.toggle('active', tab === 'login');
-  document.getElementById('tab-signup').classList.toggle('active', tab === 'signup');
-  document.getElementById('field-name').style.display = tab === 'signup' ? 'block' : 'none';
-  document.getElementById('forgot-btn').style.display  = tab === 'login'  ? 'block' : 'none';
-  var ctaEl = document.getElementById('cta-text');
-  if (ctaEl) ctaEl.textContent = tab === 'login' ? 'Entrar no Guia' : 'Criar minha conta';
-  document.getElementById('login-footer-text').innerHTML = tab === 'login'
-    ? 'Novo por aqui? <button onclick="switchTab(\'signup\')">Criar conta grátis</button>'
-    : 'Já tem conta? <button onclick="switchTab(\'login\')">Entrar</button>';
-  clearMsg();
-  document.getElementById('input-password').setAttribute('autocomplete',
-    tab === 'login' ? 'current-password' : 'new-password');
-}
-
 // ── MENSAGENS ─────────────────────────────────────────────────────────────
 function showMsg(text, type) {
   var el = document.getElementById('login-msg');
+  if (!el) return;
   el.textContent = text;
   el.className = 'login-msg ' + (type || 'error');
 }
 function clearMsg() {
   var el = document.getElementById('login-msg');
+  if (!el) return;
   el.className = 'login-msg';
   el.textContent = '';
 }
@@ -3123,88 +3035,49 @@ function setLoading(on) {
     btn.innerHTML = '<div class="btn-spinner"></div>';
   } else {
     btn.disabled = false;
-    btn.innerHTML = '<span id="cta-text">' + (currentTab === 'login' ? 'Entrar no Guia' : 'Criar minha conta') + '</span>';
+    btn.innerHTML = '<span id="cta-text">Enviar link de acesso</span>';
   }
 }
 
-// ── MAIN AUTH HANDLER ─────────────────────────────────────────────────────
-async function handleAuth() {
+// ── MAGIC LINK HANDLER ────────────────────────────────────────────────────
+async function handleMagicLink() {
   clearMsg();
-  var emailEl    = document.getElementById('input-email');
-  var passwordEl = document.getElementById('input-password');
-  var nameEl     = document.getElementById('input-name');
-  var email    = emailEl    ? emailEl.value.trim()    : '';
-  var password = passwordEl ? passwordEl.value         : '';
-  var name     = nameEl     ? nameEl.value.trim()      : '';
+  var emailEl = document.getElementById('input-email');
+  var email   = emailEl ? emailEl.value.trim() : '';
 
-  if (!email)            { showMsg('Digite seu e-mail.');                         return; }
-  if (!password)         { showMsg('Digite sua senha.');                          return; }
-  if (password.length < 6){ showMsg('A senha precisa ter pelo menos 6 caracteres.'); return; }
+  if (!email) { showMsg('Digite seu e-mail.'); return; }
+  if (!email.includes('@')) { showMsg('E-mail inválido.'); return; }
 
   setLoading(true);
 
   if (_supabase) {
-    // Supabase real
-    if (currentTab === 'login') {
-      var res = await _supabase.auth.signInWithPassword({ email: email, password: password });
-      setLoading(false);
-      if (res.error) { showMsg(translateError(res.error.message)); return; }
-      onLoginSuccess(res.data.user);
-    } else {
-      var opts = { email: email, password: password, options: {} };
-      if (name) opts.options.data = { full_name: name };
-      var res2 = await _supabase.auth.signUp(opts);
-      setLoading(false);
-      if (res2.error) { showMsg(translateError(res2.error.message)); return; }
-      if (res2.data.user && res2.data.user.identities && res2.data.user.identities.length === 0) {
-        showMsg('E-mail já cadastrado. Tente entrar.');
-      } else {
-        showMsg('Conta criada! Confirme seu e-mail. 📬', 'success');
+    var res = await _supabase.auth.signInWithOtp({
+      email: email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: window.location.href
       }
-    }
-  } else {
-    // Mock local
-    await new Promise(function(r){ setTimeout(r, 500); });
-    var result;
-    if (currentTab === 'login') {
-      result = await authMock.signIn(email, password);
-    } else {
-      result = await authMock.signUp(email, password, name || email.split('@')[0]);
-    }
+    });
     setLoading(false);
-    if (result.error) { showMsg(result.error); return; }
-    onLoginSuccess(result.user);
-    if (!supabaseConfigured) showToast('⚠️ Modo demo — configure o Supabase para produção');
-  }
-}
-
-// ── GOOGLE LOGIN ──────────────────────────────────────────────────────────
-async function handleGoogleLogin() {
-  if (!_supabase) { showMsg('Login com Google requer Supabase configurado.'); return; }
-  clearMsg();
-  var res = await _supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
-  if (res.error) showMsg(translateError(res.error.message));
-}
-
-// ── FORGOT PASSWORD ───────────────────────────────────────────────────────
-async function handleForgotPassword() {
-  var emailEl = document.getElementById('input-email');
-  var email = emailEl ? emailEl.value.trim() : '';
-  if (!email) { showMsg('Digite seu e-mail para recuperar a senha.'); return; }
-  if (_supabase) {
-    var res = await _supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
-    if (res.error) { showMsg(translateError(res.error.message)); return; }
+    if (res.error) {
+      if (res.error.message.includes('Signups not allowed')) {
+        showMsg('E-mail não encontrado. Verifique se usou o mesmo e-mail da compra.');
+      } else {
+        showMsg(res.error.message);
+      }
+      return;
+    }
   } else {
-    var r = await authMock.resetPassword(email);
-    if (r.error) { showMsg(r.error); return; }
+    // Fallback sem Supabase (só para dev)
+    await new Promise(function(r){ setTimeout(r, 800); });
+    setLoading(false);
   }
-  showMsg('Link de recuperação enviado para ' + email + ' 📬', 'success');
-}
 
-// ── GUEST MODE ────────────────────────────────────────────────────────────
-function enterAsGuest() {
-  hideLoginOverlay();
-  showToast('Modo visitante 🗺 Algumas funções são exclusivas para membros.');
+  // Mostra caixa de sucesso e esconde o form
+  document.getElementById('login-success-box').style.display = 'block';
+  document.getElementById('login-cta-btn').style.display = 'none';
+  if (emailEl) emailEl.closest('.login-field').style.display = 'none';
+  document.querySelector('.login-body p').style.display = 'none';
 }
 
 // ── ON LOGIN SUCCESS ──────────────────────────────────────────────────────
@@ -3212,7 +3085,9 @@ function onLoginSuccess(user) {
   currentUser = user;
   hideLoginOverlay();
   updateHeaderForUser(user);
-  var name = (user.user_metadata && user.user_metadata.full_name) || (user.email && user.email.split('@')[0]) || 'viajante';
+  var name = (user.user_metadata && user.user_metadata.full_name)
+    || (user.email && user.email.split('@')[0])
+    || 'viajante';
   showToast('Bem-vindo, ' + name + '! 🎉');
 }
 
@@ -3220,8 +3095,10 @@ function onLoginSuccess(user) {
 function updateHeaderForUser(user) {
   var badge = document.querySelector('.app-header-badge');
   if (!badge) return;
-  var displayName = (user.user_metadata && user.user_metadata.full_name) || (user.email && user.email.split('@')[0]) || 'Você';
-  var initials    = displayName.slice(0, 2).toUpperCase();
+  var displayName = (user.user_metadata && user.user_metadata.full_name)
+    || (user.email && user.email.split('@')[0])
+    || 'Você';
+  var initials = displayName.slice(0, 2).toUpperCase();
   var chip = document.createElement('div');
   chip.className = 'user-chip';
   chip.onclick   = handleLogout;
@@ -3234,7 +3111,6 @@ function updateHeaderForUser(user) {
 async function handleLogout() {
   if (!confirm('Deseja sair da sua conta?')) return;
   if (_supabase) await _supabase.auth.signOut();
-  else authMock.signOut();
   currentUser = null;
   var chip = document.querySelector('.user-chip');
   if (chip) {
@@ -3245,32 +3121,7 @@ async function handleLogout() {
   }
   showLoginOverlay();
 }
-
-// ── ERROR TRANSLATION ─────────────────────────────────────────────────────
-function translateError(msg) {
-  if (!msg) return 'Erro desconhecido. Tente novamente.';
-  if (msg.includes('Invalid login credentials'))  return 'E-mail ou senha incorretos.';
-  if (msg.includes('Email not confirmed'))         return 'E-mail não confirmado. Verifique sua caixa de entrada.';
-  if (msg.includes('User already registered'))     return 'Este e-mail já está cadastrado.';
-  if (msg.includes('Password should be'))          return 'A senha precisa ter pelo menos 6 caracteres.';
-  if (msg.includes('rate limit'))                  return 'Muitas tentativas. Aguarde alguns minutos.';
-  if (msg.includes('network'))                     return 'Erro de conexão. Verifique sua internet.';
-  return msg;
-}
 </script>
-
-
-<script>
-if ('serviceWorker' in navigator) {
-  const swCode = `
-    const CACHE = 'guia-pobre-v1';
-    self.addEventListener('install', e => {
-      self.skipWaiting();
-    });
-    self.addEventListener('fetch', e => {
-      e.respondWith(
-        caches.match(e.request).then(r => r || fetch(e.request))
-      );
     });
   `;
   const blob = new Blob([swCode], {type: 'application/javascript'});
