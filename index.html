@@ -3163,15 +3163,20 @@ function renderComunidade() {
 }
 
 // ── ADMIN ─────────────────────────────────────────────────────────────────
-const ADMIN_EMAIL = 'marcelopasko@gmail.com'; // seu e-mail de admin
+const ADMIN_EMAILS = [
+  'marcelopasko@gmail.com',
+  'marcelopaskopereira@gmail.com',
+  'marcelopasko2015@gmail.com'
+];
 function isAdmin() {
-  return currentUser && currentUser.email === ADMIN_EMAIL;
+  return currentUser && ADMIN_EMAILS.includes(currentUser.email);
 }
 
 async function deletarPost(postId) {
   if (!confirm('Deletar este post?')) return;
   if (_supabase) {
-    await _supabase.from('comunidade_posts').delete().eq('id', postId);
+    const { error } = await _supabase.from('comunidade_posts').delete().eq('id', postId);
+    if (error) { showToast('Erro ao deletar: ' + error.message); return; }
   } else {
     _postsCache = _postsCache.filter(p => p.id !== postId);
     renderComunidade();
