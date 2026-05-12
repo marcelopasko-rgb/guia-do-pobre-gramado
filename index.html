@@ -3059,21 +3059,18 @@ let currentTab  = 'login';
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 (async function initAuth() {
-  if (typeof _supabase !== 'undefined' && _supabase) {
+  if (_supabase) {
     try {
       const { data: { session } } = await _supabase.auth.getSession();
       if (session && session.user) { onLoginSuccess(session.user); return; }
-      
-      _supabase.auth.onAuthStateChange(function(event, session) {
-        if (session && session.user) {
-          onLoginSuccess(session.user);
-          hideLoginOverlay();
-        } else if (event === 'SIGNED_OUT') {
-          currentUser = null;
-          showLoginOverlay();
-        }
+      _supabase.auth.onAuthStateChange(function(_event, session) {
+        if (session && session.user && !currentUser) onLoginSuccess(session.user);
+        else if (!session) currentUser = null;
       });
     } catch(e) { console.error(e); }
+  } else {
+    const session = authMock.getSession();
+    if (session) { onLoginSuccess(session); return; }
   }
   showLoginOverlay();
 })();
@@ -3140,38 +3137,20 @@ async function handleAuth() {
   var password = passwordEl ? passwordEl.value         : '';
   var name     = nameEl     ? nameEl.value.trim()      : '';
 
-  if (!email) { showMsg('Digite seu e-mail.'); return; }
-
-  // Exige senha apenas na aba de CRIAR CONTA
-  if (currentTab === 'signup' && (!password || password.length < 6)) { 
-    showMsg('Para criar conta, a senha precisa ter pelo menos 6 caracteres.'); 
-    return; 
-  }
+  if (!email)            { showMsg('Digite seu e-mail.');                         return; }
+  if (!password)         { showMsg('Digite sua senha.');                          return; }
+  if (password.length < 6){ showMsg('A senha precisa ter pelo menos 6 caracteres.'); return; }
 
   setLoading(true);
 
-  if (typeof _supabase !== 'undefined' && _supabase) {
-    // ── ABA DE LOGIN ──
+  if (_supabase) {
+    // Supabase real
     if (currentTab === 'login') {
-      if (!password) {
-        // LINK MÁGICO (Usuário deixou a senha em branco)
-        var resOtp = await _supabase.auth.signInWithOtp({
-          email: email,
-          options: { emailRedirectTo: window.location.origin }
-        });
-        setLoading(false);
-        if (resOtp.error) { showMsg(translateError(resOtp.error.message)); return; }
-        showMsg('Link mágico enviado! Verifique seu e-mail. 📬', 'success');
-      } else {
-        // LOGIN TRADICIONAL (Usuário digitou a senha)
-        var resLog = await _supabase.auth.signInWithPassword({ email: email, password: password });
-        setLoading(false);
-        if (resLog.error) { showMsg(translateError(resLog.error.message)); return; }
-        onLoginSuccess(resLog.data.user);
-      }
-    } 
-    // ── ABA DE CRIAR CONTA ──
-    else {
+      var res = await _supabase.auth.signInWithPassword({ email: email, password: password });
+      setLoading(false);
+      if (res.error) { showMsg(translateError(res.error.message)); return; }
+      onLoginSuccess(res.data.user);
+    } else {
       var opts = { email: email, password: password, options: {} };
       if (name) opts.options.data = { full_name: name };
       var res2 = await _supabase.auth.signUp(opts);
@@ -3184,8 +3163,18 @@ async function handleAuth() {
       }
     }
   } else {
-    showMsg('Erro de conexão. Verifique o Supabase.');
+    // Mock local
+    await new Promise(function(r){ setTimeout(r, 500); });
+    var result;
+    if (currentTab === 'login') {
+      result = await authMock.signIn(email, password);
+    } else {
+      result = await authMock.signUp(email, password, name || email.split('@')[0]);
+    }
     setLoading(false);
+    if (result.error) { showMsg(result.error); return; }
+    onLoginSuccess(result.user);
+    if (!supabaseConfigured) showToast('⚠️ Modo demo — configure o Supabase para produção');
   }
 }
 
