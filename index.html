@@ -3459,40 +3459,37 @@ let currentUser = null;
 (async function initAuth() {
   if (_supabase) {
     try {
-      // Detecta token na URL (invite / magic link)
-      var hash = window.location.hash;
-      if (hash && hash.includes('access_token')) {
-        // SDK do Supabase processa o hash automaticamente via onAuthStateChange
-        _supabase.auth.onAuthStateChange(function(event, session) {
-          console.log('Auth event:', event);
-          if (session && session.user) {
-            onLoginSuccess(session.user);
-            history.replaceState(null, '', window.location.pathname);
-          } else if (event === 'SIGNED_OUT') {
-            currentUser = null;
-            showLoginOverlay();
-          }
-        });
-        // Esconde o overlay enquanto processa
-        hideLoginOverlay();
-        // Força o SDK a processar o hash atual
-        await _supabase.auth.getSession();
-        return;
-      }
+      var _loginProcessado = false;
 
-      // Sem token na URL — verifica sessão existente
-      const { data: { session } } = await _supabase.auth.getSession();
-      if (session && session.user) { onLoginSuccess(session.user); return; }
-
+      // Registra listener único de auth
       _supabase.auth.onAuthStateChange(function(event, session) {
-        if (session && session.user) {
+        if (session && session.user && !_loginProcessado) {
+          _loginProcessado = true;
           onLoginSuccess(session.user);
-          history.replaceState(null, '', window.location.pathname);
+          if (window.location.hash && window.location.hash.includes('access_token')) {
+            history.replaceState(null, '', window.location.pathname);
+          }
         } else if (event === 'SIGNED_OUT') {
+          _loginProcessado = false;
           currentUser = null;
           showLoginOverlay();
         }
       });
+
+      // Verifica sessão existente
+      const { data: { session } } = await _supabase.auth.getSession();
+      if (session && session.user && !_loginProcessado) {
+        _loginProcessado = true;
+        onLoginSuccess(session.user);
+        return;
+      }
+
+      // Se há token na URL, esconde overlay enquanto o listener processa
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        hideLoginOverlay();
+        return;
+      }
+
     } catch(e) { console.error(e); }
   }
   showLoginOverlay();
