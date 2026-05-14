@@ -1295,8 +1295,8 @@ s{color:#555;font-weight:500;}
       <a href="#">Ver todos</a>
     </div>
     <div class="cards-scroll">
-      <a href="https://parksnet.com.br/destino/serra-gaucha/versoi-fondue?bookingAgency=5248&cupom=PARKSNETEXTRA" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
-      <div class="card">
+      <a href="https://parksnet.com.br/destino/serra-gaucha/versoi-fondue?bookingAgency=5248&cupom=PARKSNETEXTRA" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;flex-shrink:0;display:block;">
+      <div class="card" style="width:168px;">
         <div class="card-img ci-fondue">
           <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/29/c7/1c/cc/caption.jpg?w=900&h=500&s=1" alt="Sequência de Fondue" loading="lazy" onerror="this.style.display='none'">
         </div>
@@ -2116,8 +2116,8 @@ function buildPromocoes(){
           pn.split(' ').filter(w=>w.length>3).some(w=>an.includes(w));
       });
       const btnDesconto = p.url
-        ? `<a href="${p.url}" target="_blank" rel="noopener" class="btn-comprar" style="display:inline-flex;text-decoration:none;margin:0 14px 12px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;stroke:#fff;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Comprar com Desconto</a>`
-        : `<button class="btn-comprar" onclick="showToast('Buscando desconto...')" style="margin:0 14px 12px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;stroke:#fff;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Comprar com Desconto</button>`;
+        ? `<a href="${p.url}" target="_blank" rel="noopener" class="btn-comprar" style="display:inline-flex;text-decoration:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;stroke:#fff;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Comprar com Desconto</a>`
+        : `<button class="btn-comprar" onclick="showToast('Buscando desconto...')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;stroke:#fff;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Comprar com Desconto</button>`;
       return `
       <div class="attr-card">
         <div class="attr-card-header" onclick="toggleAttrCard(this)">
@@ -2147,7 +2147,7 @@ function buildPromocoes(){
           <div class="attr-detail-row"><div class="attr-detail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="attr-detail-text">${temDe ? `De <s style="color:#555">${p.de}</s> → ` : ''}<strong style="color:var(--yellow);">Por ${p.por}</strong></span></div>
           ${temFeriado ? `<div class="attr-detail-row"><div class="attr-detail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><span class="attr-detail-text" style="color:#fb923c;font-weight:700;">${p.feriado}</span></div>` : ''}
           `}
-          <div style="padding:12px 0 2px;">
+          <div style="padding:12px 0 4px;">
             ${btnDesconto}
           </div>
         </div>
