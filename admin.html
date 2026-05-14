@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard — Guia do Pobre</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#080a0d;
+  --bg2:#0d1117;
+  --bg3:#161b22;
+  --border:#21262d;
+  --border2:#30363d;
+  --text:#e6edf3;
+  --muted:#8b949e;
+  --green:#3fb950;
+  --yellow:#d29922;
+  --orange:#f0883e;
+  --red:#f85149;
+  --blue:#58a6ff;
+  --teal:#39d353;
+  --accent:#f0b429;
+}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;}
+
+/* ── LOGIN ── */
+#login-screen{
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;flex-direction:column;gap:24px;
+}
+.login-box{
+  background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+  padding:40px;width:100%;max-width:360px;
+}
+.login-logo{
+  font-family:'Syne',sans-serif;font-size:22px;font-weight:900;
+  color:var(--accent);margin-bottom:8px;letter-spacing:-0.5px;
+}
+.login-sub{font-size:11px;color:var(--muted);margin-bottom:28px;}
+.login-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;display:block;}
+.login-input{
+  width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
+  padding:10px 14px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;
+  outline:none;transition:border-color 0.2s;
+}
+.login-input:focus{border-color:var(--accent);}
+.login-btn{
+  width:100%;margin-top:16px;background:var(--accent);color:#0d0a00;border:none;
+  border-radius:8px;padding:11px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;
+  cursor:pointer;transition:opacity 0.15s;letter-spacing:0.3px;
+}
+.login-btn:hover{opacity:0.88;}
+.login-err{font-size:11px;color:var(--red);margin-top:10px;display:none;}
+
+/* ── DASHBOARD ── */
+#dashboard{display:none;}
+.topbar{
+  background:var(--bg2);border-bottom:1px solid var(--border);
+  padding:14px 24px;display:flex;align-items:center;justify-content:space-between;
+  position:sticky;top:0;z-index:100;
+}
+.topbar-logo{font-family:'Syne',sans-serif;font-size:16px;font-weight:900;color:var(--accent);}
+.topbar-meta{font-size:10px;color:var(--muted);}
+.topbar-right{display:flex;align-items:center;gap:16px;}
+.refresh-btn{
+  background:var(--bg3);border:1px solid var(--border2);color:var(--muted);
+  border-radius:6px;padding:6px 12px;font-size:10px;font-family:'JetBrains Mono',monospace;
+  cursor:pointer;transition:all 0.15s;font-weight:600;
+}
+.refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+.content{padding:24px;max-width:1200px;margin:0 auto;}
+
+/* ── STATS ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px;}
+.stat-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;
+  position:relative;overflow:hidden;
+}
+.stat-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+}
+.stat-card.green::before{background:var(--green);}
+.stat-card.yellow::before{background:var(--yellow);}
+.stat-card.orange::before{background:var(--orange);}
+.stat-card.blue::before{background:var(--blue);}
+.stat-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:10px;}
+.stat-value{font-family:'Syne',sans-serif;font-size:32px;font-weight:900;line-height:1;}
+.stat-value.green{color:var(--green);}
+.stat-value.yellow{color:var(--yellow);}
+.stat-value.orange{color:var(--orange);}
+.stat-value.blue{color:var(--blue);}
+.stat-sub{font-size:10px;color:var(--muted);margin-top:6px;}
+
+/* ── SECTIONS ── */
+.section{margin-bottom:24px;}
+.section-title{
+  font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;
+  font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;
+}
+.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+@media(max-width:700px){.two-col{grid-template-columns:1fr;}}
+
+/* ── CHART ── */
+.chart-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;
+}
+.chart-title{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:16px;text-transform:uppercase;letter-spacing:1px;}
+.chart-wrap{position:relative;height:200px;}
+
+/* ── RANKING ── */
+.rank-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;
+}
+.rank-title{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:14px;text-transform:uppercase;letter-spacing:1px;}
+.rank-item{
+  display:flex;align-items:center;gap:10px;padding:7px 0;
+  border-bottom:1px solid var(--border);
+}
+.rank-item:last-child{border-bottom:none;}
+.rank-num{font-size:10px;color:var(--muted);width:16px;text-align:right;flex-shrink:0;}
+.rank-bar-wrap{flex:1;min-width:0;}
+.rank-name{font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:4px;font-weight:600;}
+.rank-bar-bg{background:var(--bg3);border-radius:100px;height:5px;overflow:hidden;}
+.rank-bar-fill{height:100%;border-radius:100px;transition:width 0.8s cubic-bezier(0.34,1.2,0.64,1);}
+.rank-count{font-size:11px;font-weight:700;flex-shrink:0;width:28px;text-align:right;}
+
+/* ── FEED ── */
+.feed-card{
+  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+  overflow:hidden;
+}
+.feed-title{font-size:11px;color:var(--muted);font-weight:600;padding:16px 20px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);}
+.feed-item{
+  display:flex;align-items:center;gap:12px;padding:10px 20px;
+  border-bottom:1px solid var(--border);font-size:11px;
+}
+.feed-item:last-child{border-bottom:none;}
+.feed-badge{
+  font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;
+  flex-shrink:0;text-transform:uppercase;letter-spacing:0.5px;
+}
+.badge-parque{background:rgba(240,180,41,0.15);color:var(--yellow);}
+.badge-restaurante{background:rgba(63,185,80,0.15);color:var(--green);}
+.badge-atracao{background:rgba(88,166,255,0.15);color:var(--blue);}
+.badge-outro{background:rgba(139,148,158,0.15);color:var(--muted);}
+.feed-nome{flex:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.feed-time{color:var(--muted);font-size:10px;flex-shrink:0;}
+
+/* ── LOADING ── */
+.loading{
+  display:flex;align-items:center;justify-content:center;
+  padding:40px;color:var(--muted);font-size:11px;gap:8px;
+}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blink 1.2s ease-in-out infinite;}
+.dot:nth-child(2){animation-delay:0.2s;}
+.dot:nth-child(3){animation-delay:0.4s;}
+@keyframes blink{0%,80%,100%{opacity:0.2;}40%{opacity:1;}}
+
+.empty{padding:32px;text-align:center;color:var(--muted);font-size:11px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">⚡ Guia do Pobre</div>
+    <div class="login-sub">Dashboard de Analytics — Acesso Restrito</div>
+    <label class="login-label">Senha de acesso</label>
+    <input type="password" class="login-input" id="senha-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')tentarLogin()">
+    <button class="login-btn" onclick="tentarLogin()">Entrar no Dashboard</button>
+    <div class="login-err" id="login-err">Senha incorreta.</div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="topbar">
+    <div class="topbar-logo">⚡ Analytics — Guia do Pobre</div>
+    <div class="topbar-right">
+      <span class="topbar-meta" id="last-update">—</span>
+      <button class="refresh-btn" onclick="carregarDados()">↻ Atualizar</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- STATS -->
+    <div class="section">
+      <div class="section-title">Resumo</div>
+      <div class="stats-grid">
+        <div class="stat-card green">
+          <div class="stat-label">Cliques Hoje</div>
+          <div class="stat-value green" id="stat-hoje">—</div>
+          <div class="stat-sub" id="stat-hoje-sub">carregando...</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-label">Esta Semana</div>
+          <div class="stat-value yellow" id="stat-semana">—</div>
+          <div class="stat-sub" id="stat-semana-sub">carregando...</div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-label">Este Mês</div>
+          <div class="stat-value orange" id="stat-mes">—</div>
+          <div class="stat-sub" id="stat-mes-sub">carregando...</div>
+        </div>
+        <div class="stat-card blue">
+          <div class="stat-label">Usuários Únicos</div>
+          <div class="stat-value blue" id="stat-users">—</div>
+          <div class="stat-sub" id="stat-users-sub">carregando...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- GRÁFICO -->
+    <div class="section">
+      <div class="section-title">Cliques por dia</div>
+      <div class="chart-card">
+        <div class="chart-wrap">
+          <canvas id="chart-dias"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- RANKINGS -->
+    <div class="section">
+      <div class="section-title">Rankings</div>
+      <div class="two-col">
+        <div class="rank-card">
+          <div class="rank-title">🎢 Parques mais clicados</div>
+          <div id="rank-parques"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+        </div>
+        <div class="rank-card">
+          <div class="rank-title">🍽️ Restaurantes mais clicados</div>
+          <div id="rank-restaurantes"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FEED RECENTE -->
+    <div class="section">
+      <div class="section-title">Eventos recentes</div>
+      <div class="feed-card">
+        <div class="feed-title">Últimos 50 cliques</div>
+        <div id="feed-eventos"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL  = 'https://jltxatuypkmchitkafkq.supabase.co';
+// ⚠️ Substitua pela sua SERVICE ROLE KEY (não a anon key)
+// Painel Supabase → Project Settings → API → service_role
+const SERVICE_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsdHhhdHV5cGttY2hpdGthZmtxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU0MDY4MywiZXhwIjoyMDk0MTE2NjgzfQ.hAWEm5Gr0Vy_w1-I95umY0X2Pvvy3Yy5qcKsMtQyyg4';
+const SENHA_CORRETA = 'narutointer00EM*'; // Troque para a senha que quiser
+
+let _sb = null;
+let chartInstance = null;
+
+function tentarLogin() {
+  const v = document.getElementById('senha-input').value;
+  if (v === SENHA_CORRETA) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    iniciarDashboard();
+  } else {
+    document.getElementById('login-err').style.display = 'block';
+  }
+}
+
+function iniciarDashboard() {
+  _sb = window.supabase.createClient(SUPABASE_URL, SERVICE_KEY);
+  carregarDados();
+}
+
+async function carregarDados() {
+  document.getElementById('last-update').textContent = 'Atualizando...';
+  try {
+    const [eventos] = await Promise.all([
+      _sb.from('eventos').select('*').order('criado_em', { ascending: false }).limit(500)
+    ]);
+    if (eventos.error) throw eventos.error;
+    const dados = eventos.data || [];
+    renderStats(dados);
+    renderChart(dados);
+    renderRankings(dados);
+    renderFeed(dados);
+    const agora = new Date();
+    document.getElementById('last-update').textContent =
+      'Atualizado às ' + agora.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
+  } catch(e) {
+    console.error(e);
+    document.getElementById('last-update').textContent = 'Erro ao carregar — verifique a service key';
+  }
+}
+
+function hoje() { return new Date().toISOString().split('T')[0]; }
+function diasAtras(n) {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d.toISOString().split('T')[0];
+}
+
+function renderStats(dados) {
+  const dHoje = hoje();
+  const dSemana = diasAtras(7);
+  const dMes = diasAtras(30);
+
+  const cliquesHoje  = dados.filter(e => e.criado_em?.startsWith(dHoje)).length;
+  const cliquesSemana = dados.filter(e => e.criado_em >= dSemana).length;
+  const cliquesMes   = dados.filter(e => e.criado_em >= dMes).length;
+  const usersUnicos  = new Set(dados.filter(e => e.user_id).map(e => e.user_id)).size;
+
+  const topHoje = dados
+    .filter(e => e.criado_em?.startsWith(dHoje) && e.payload?.nome)
+    .reduce((acc, e) => { acc[e.payload.nome] = (acc[e.payload.nome]||0)+1; return acc; }, {});
+  const topNome = Object.entries(topHoje).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
+
+  document.getElementById('stat-hoje').textContent = cliquesHoje;
+  document.getElementById('stat-hoje-sub').textContent = 'Top: ' + topNome;
+  document.getElementById('stat-semana').textContent = cliquesSemana;
+  document.getElementById('stat-semana-sub').textContent = 'últimos 7 dias';
+  document.getElementById('stat-mes').textContent = cliquesMes;
+  document.getElementById('stat-mes-sub').textContent = 'últimos 30 dias';
+  document.getElementById('stat-users').textContent = usersUnicos;
+  document.getElementById('stat-users-sub').textContent = 'com conta ativa';
+}
+
+function renderChart(dados) {
+  const dias = [];
+  const counts = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = diasAtras(i);
+    dias.push(d.slice(5)); // MM-DD
+    counts.push(dados.filter(e => e.criado_em?.startsWith(d)).length);
+  }
+
+  const ctx = document.getElementById('chart-dias').getContext('2d');
+  if (chartInstance) chartInstance.destroy();
+  chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: dias,
+      datasets: [{
+        data: counts,
+        backgroundColor: counts.map(v => v > 0 ? 'rgba(240,180,41,0.7)' : 'rgba(240,180,41,0.15)'),
+        borderColor: 'rgba(240,180,41,0.9)',
+        borderWidth: 1,
+        borderRadius: 3,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        backgroundColor: '#161b22',
+        borderColor: '#21262d',
+        borderWidth: 1,
+        titleColor: '#e6edf3',
+        bodyColor: '#8b949e',
+        callbacks: { title: i => i[0].label, label: i => i.raw + ' cliques' }
+      }},
+      scales: {
+        x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { size: 9, family: 'JetBrains Mono' }, maxRotation: 45 } },
+        y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { size: 10, family: 'JetBrains Mono' }, stepSize: 1 }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function renderRankings(dados) {
+  const parques = agrupar(dados.filter(e => e.evento === 'clique_parque'));
+  const rests   = agrupar(dados.filter(e => e.evento === 'clique_restaurante'));
+  document.getElementById('rank-parques').innerHTML     = buildRanking(parques, '#f0b429');
+  document.getElementById('rank-restaurantes').innerHTML = buildRanking(rests, '#3fb950');
+}
+
+function agrupar(lista) {
+  const acc = {};
+  lista.forEach(e => {
+    const nome = e.payload?.nome || 'Desconhecido';
+    acc[nome] = (acc[nome] || 0) + 1;
+  });
+  return Object.entries(acc).sort((a,b) => b[1]-a[1]).slice(0, 10);
+}
+
+function buildRanking(itens, cor) {
+  if (!itens.length) return '<div class="empty">Nenhum clique registrado ainda.</div>';
+  const max = itens[0][1];
+  return itens.map(([nome, count], i) => `
+    <div class="rank-item">
+      <span class="rank-num">${i+1}</span>
+      <div class="rank-bar-wrap">
+        <div class="rank-name">${nome}</div>
+        <div class="rank-bar-bg">
+          <div class="rank-bar-fill" style="width:${Math.round(count/max*100)}%;background:${cor};"></div>
+        </div>
+      </div>
+      <span class="rank-count" style="color:${cor};">${count}</span>
+    </div>
+  `).join('');
+}
+
+function renderFeed(dados) {
+  const recentes = dados.slice(0, 50);
+  if (!recentes.length) {
+    document.getElementById('feed-eventos').innerHTML = '<div class="empty">Nenhum evento ainda.</div>';
+    return;
+  }
+  document.getElementById('feed-eventos').innerHTML = recentes.map(e => {
+    const badge = {
+      clique_parque:      '<span class="feed-badge badge-parque">Parque</span>',
+      clique_restaurante: '<span class="feed-badge badge-restaurante">Restaurante</span>',
+      clique_atracao:     '<span class="feed-badge badge-atracao">Atração</span>',
+    }[e.evento] || '<span class="feed-badge badge-outro">' + (e.evento || '?') + '</span>';
+    const nome = e.payload?.nome || '—';
+    const hora = new Date(e.criado_em).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    return `
+      <div class="feed-item">
+        ${badge}
+        <span class="feed-nome">${nome}</span>
+        <span class="feed-time">${hora}</span>
+      </div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>
