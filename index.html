@@ -2499,7 +2499,9 @@ function converterRoteiroPorSlug(linhas, atracoes) {
       dica: at ? (at.dica || '') : '',
       obs: linha.observacao || ''
     };
-    var turno = (linha.turno || '').toLowerCase().replace('ã','a');
+    var turno = (linha.turno || '').toLowerCase()
+      .replace(/ã/g,'a').replace(/ç/g,'c').replace(/é/g,'e')
+      .replace(/á/g,'a').replace(/ó/g,'o').trim();
     if (turno === 'manha') dias[d].manha.push(item);
     else if (turno === 'tarde') dias[d].tarde.push(item);
     else if (turno === 'noite') dias[d].noite.push(item);
@@ -2841,7 +2843,8 @@ function saveRoteiroChecked(arr) {
 }
 
 function countRoteiroTotal() {
-  return roteiroData.reduce((s, d) => s + d.atr.length, 0);
+  // Conta os itens realmente renderizados no DOM (funciona para qualquer roteiro)
+  return document.querySelectorAll('#roteiro-body .attraction-item[data-id]').length;
 }
 
 function updateRoteiroProgress() {
