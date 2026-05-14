@@ -2104,6 +2104,8 @@ const parques=[
   {e:"🎈",n:"Canyons e Balões",d:"Voo de balão sobre os cânions da Serra Gaúcha",de:null,por:"a partir de R$ 439,00",feriado:null,url:"https://parksnet.com.br/destino/serra-gaucha/canyons-e-baloes?bookingAgency=5248&cupom=PARKSNETEXTRA"},
   {e:"📷",n:"Forever in Gramado (fotografia)",d:"Sessão fotográfica profissional em cenários deslumbrantes",de:null,por:"a partir de R$ 299,00",feriado:null,url:"https://parksnet.com.br/destino/serra-gaucha/forever-in-gramado-fotografia?bookingAgency=5248&cupom=PARKSNETEXTRA"},
   {e:"🚂",n:"Tour Uva e Vinho - Maria Fumaça",d:"Percurso de trem histórico pela região vinícola gaúcha",de:"R$ 399,00",por:"a partir de R$ 391,84",feriado:null,url:"https://parksnet.com.br/destino/serra-gaucha/maria-fumaca?bookingAgency=5248&cupom=PARKSNETEXTRA"},
+  {e:"🍕",n:"Kongo Pizzaria",d:"Pizzas artesanais com ingredientes da Serra Gaúcha",de:null,por:"a partir de R$ 89,90",feriado:null,url:"https://parksnet.com.br/destino/serra-gaucha/kongo-pizzaria?bookingAgency=5248&cupom=PARKSNETEXTRA"},
+  {e:"🍺",n:"Cervejaria Farol",d:"Tour, almoço e vista 360º na Serra Gaúcha",de:null,por:"a partir de R$ 139,00",feriado:null,url:"https://parksnet.com.br/destino/serra-gaucha/cervejaria-farol?bookingAgency=5248&cupom=PARKSNETEXTRA"},
 ];
 
 function buildPromocoes(){
@@ -2957,6 +2959,20 @@ function buildRelampago() {
     const iconH = getIconHTML(o.nome, o.emoji, 48);
     const discPct = parseInt(o.desc);
     const discColor = discPct <= -25 ? '#ef4444' : discPct <= -15 ? '#f97316' : '#f0b429';
+
+    // Busca URL base nos arrays parques[] e restaurantes[], troca o cupom pelo correto
+    const todosItens = [...parques, ...restaurantes];
+    const match = todosItens.find(p => {
+      const pn = (p.n || '').toLowerCase();
+      const on = o.nome.toLowerCase();
+      return pn === on || pn.includes(on) || on.includes(pn) ||
+        on.split(' ').filter(w => w.length > 3).some(w => pn.includes(w));
+    });
+    const urlBase = match?.url || null;
+    const urlCupom = urlBase
+      ? urlBase.replace('cupom=PARKSNETEXTRA', `cupom=${o.cupom}`)
+      : null;
+
     return `
     <div class="park-item" style="position:relative;padding:14px 16px;">
       ${iconH}
@@ -2982,9 +2998,14 @@ function buildRelampago() {
             ${o.de ? `<span style="font-size:10px;color:#555;text-decoration:line-through;">De ${o.de}</span> ` : ''}
             <span style="font-size:13px;font-weight:800;color:var(--green);">A partir de ${o.por}</span>
           </div>
-          <button onclick="copiarCupom('${o.cupom}')" style="background:linear-gradient(135deg,var(--orange),var(--yellow));color:#0d0a00;border:none;padding:8px 14px;border-radius:10px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap;font-family:'Space Grotesk',sans-serif;flex-shrink:0;">
-            Usar Cupom
-          </button>
+          ${urlCupom
+            ? `<a href="${urlCupom}" target="_blank" rel="noopener" style="background:linear-gradient(135deg,var(--orange),var(--yellow));color:#0d0a00;border:none;padding:8px 14px;border-radius:10px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap;font-family:'Space Grotesk',sans-serif;flex-shrink:0;text-decoration:none;display:inline-block;">
+                Usar Cupom
+              </a>`
+            : `<button onclick="copiarCupom('${o.cupom}')" style="background:linear-gradient(135deg,var(--orange),var(--yellow));color:#0d0a00;border:none;padding:8px 14px;border-radius:10px;font-size:10px;font-weight:800;cursor:pointer;white-space:nowrap;font-family:'Space Grotesk',sans-serif;flex-shrink:0;">
+                Usar Cupom
+              </button>`
+          }
         </div>
       </div>
     </div>`;
