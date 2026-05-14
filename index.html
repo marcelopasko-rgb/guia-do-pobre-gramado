@@ -2446,6 +2446,71 @@ function converterRoteiroSupabase(conteudo) {
   });
 }
 
+// ── CONVERTE linhas roteiro_atracoes → formato do app ─────────────────────
+function converterRoteiroPorSlug(linhas, atracoes) {
+  var dias = {};
+  linhas.forEach(function(linha) {
+    var d = linha.dia;
+    if (!dias[d]) dias[d] = { dia: d, manha: [], tarde: [], noite: [], almoco: [], observacoes: [] };
+    var at = (linha.atracao_slug && atracoes[linha.atracao_slug]) ? atracoes[linha.atracao_slug] : null;
+    var nomeAtracao = at ? (at.nome || linha.atracao_nome_livre || '') : (linha.atracao_nome_livre || '');
+    if (!nomeAtracao) return;
+    var item = {
+      n: (linha.horario ? linha.horario + ' - ' : '') + nomeAtracao,
+      d: at ? (at.descricao || '') : '',
+      v: at ? (at.preco || '') : '',
+      free: at ? !(at.pago === true || at.pago === 'true') : true,
+      slug: linha.atracao_slug || '',
+      link: at ? (at.link_desconto || '') : '',
+      dica: at ? (at.dica || '') : '',
+      obs: linha.observacao || ''
+    };
+    var turno = (linha.turno || '').toLowerCase().replace('ã','a');
+    if (turno === 'manha') dias[d].manha.push(item);
+    else if (turno === 'tarde') dias[d].tarde.push(item);
+    else if (turno === 'noite') dias[d].noite.push(item);
+    else if (turno === 'almoco' || turno === 'almo\u00e7o') dias[d].almoco.push(item);
+    else dias[d].tarde.push(item);
+    if (linha.observacao) dias[d].observacoes.push(linha.observacao);
+  });
+
+  return Object.keys(dias).sort(function(a,b){ return parseInt(a)-parseInt(b); }).map(function(d) {
+    var dia = dias[d];
+    var todasAtividades = [];
+    dia.manha.forEach(function(a){ todasAtividades.push(a); });
+    if (dia.almoco.length) {
+      dia.almoco.forEach(function(a){ todasAtividades.push({ n: '🍽️ ' + a.n, d: a.d || 'Sugestão de almoço', v: a.v, free: true, slug: a.slug }); });
+    }
+    dia.tarde.forEach(function(a){ todasAtividades.push(a); });
+    dia.noite.forEach(function(a){ todasAtividades.push(a); });
+    var dicas = dia.observacoes.filter(function(o,i,arr){ return o && arr.indexOf(o) === i; });
+    if (dicas.length) {
+      todasAtividades.push({ n: '💡 Dica do Pobre', d: dicas.join(' • '), v: '', free: true, slug: '' });
+    }
+    var primeiraAtiv = todasAtividades[0] ? todasAtividades[0].n.replace(/^\d+:\d+ - /, '') : '';
+    var segundaAtiv = todasAtividades[1] ? todasAtividades[1].n.replace(/^\d+:\d+ - /, '') : '';
+    return {
+      dia: parseInt(d),
+      titulo: 'Dia ' + d,
+      sub: [primeiraAtiv, segundaAtiv].filter(Boolean).join(' · '),
+      atr: todasAtividades,
+      tip: dicas[0] || ''
+    };
+  });
+}
+
+function _adicionarBadgePerfil(perfil) {
+  var progWrap = document.getElementById('roteiro-progress-wrap');
+  if (progWrap && !document.getElementById('roteiro-badge-personalizado')) {
+    var badge = document.createElement('div');
+    badge.id = 'roteiro-badge-personalizado';
+    badge.style.cssText = 'margin:0 16px 10px;background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.25);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--teal);font-weight:700;display:flex;align-items:center;gap:6px;';
+    var perfilLabel = { familia:'Família', casal:'Casal', melhor_idade:'Melhor Idade', viajante_solo:'Viajante Solo' }[perfil.perfil_viagem] || perfil.perfil_viagem;
+    badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg> Roteiro personalizado · ' + perfilLabel + ' · ' + perfil.dias_viagem + ' dias';
+    progWrap.parentNode.insertBefore(badge, progWrap);
+  }
+}
+
 // ── CARREGA ROTEIRO PERSONALIZADO DO SUPABASE ────────────────────────────
 async function carregarRoteiroPersonalizado() {
   if (!_supabase || !currentUser) { buildRoteiro(); return; }
@@ -2461,42 +2526,62 @@ async function carregarRoteiroPersonalizado() {
       .single();
 
     var perfil = perfilRes.data;
-    if (!perfil || !perfil.roteiro_id) { buildRoteiro(); return; }
+    if (!perfil) { buildRoteiro(); return; }
 
-    var roteiroRes = await _supabase
-      .from('roteiros')
-      .select('titulo, conteudo')
-      .eq('id', perfil.roteiro_id)
+    // Monta ID no formato das novas tabelas (ex: casal-7)
+    var perfilMap = { casal:'casal', familia:'familia', melhor_idade:'melhor-idade', viajante_solo:'solo' };
+    var perfilKey = perfilMap[perfil.perfil_viagem] || perfil.perfil_viagem;
+    var roteiroIdV2 = perfilKey + '-' + perfil.dias_viagem;
+
+    var roteiroV2Res = await _supabase
+      .from('roteiros_v2')
+      .select('id, titulo, duracao_dias')
+      .eq('id', roteiroIdV2)
       .single();
 
-    var roteiro = roteiroRes.data;
-    if (!roteiro) { buildRoteiro(); return; }
+    if (roteiroV2Res.data) {
+      // ✅ Usa novas tabelas com slugs
+      var rotV2 = roteiroV2Res.data;
+      var linhasRes = await _supabase
+        .from('roteiro_atracoes')
+        .select('dia, turno, horario, atracao_slug, atracao_nome_livre, observacao, atracoes(nome, descricao, preco, dica, link_desconto, pago)')
+        .eq('roteiro_id', roteiroIdV2)
+        .order('dia')
+        .order('horario');
 
-    // Atualiza título da aba
-    var header = document.querySelector('#overlay-roteiro .overlay-header h2');
-    if (header) {
-      header.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3z"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> ' + roteiro.titulo;
+      var linhas = linhasRes.data || [];
+      var atracoes = {};
+      linhas.forEach(function(l) {
+        if (l.atracao_slug && l.atracoes) atracoes[l.atracao_slug] = l.atracoes;
+      });
+
+      var header = document.querySelector('#overlay-roteiro .overlay-header h2');
+      if (header) header.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3z"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> ' + rotV2.titulo;
+
+      _adicionarBadgePerfil(perfil);
+      buildRoteiro(converterRoteiroPorSlug(linhas, atracoes));
+      return;
     }
 
-    // Badge personalizado
-    var progWrap = document.getElementById('roteiro-progress-wrap');
-    if (progWrap && !document.getElementById('roteiro-badge-personalizado')) {
-      var badge = document.createElement('div');
-      badge.id = 'roteiro-badge-personalizado';
-      badge.style.cssText = 'margin:0 16px 10px;background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.25);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--teal);font-weight:700;display:flex;align-items:center;gap:6px;';
-      var perfilLabel = { familia:'Família', casal:'Casal', melhor_idade:'Melhor Idade', solo:'Viajante Solo' }[perfil.perfil_viagem] || perfil.perfil_viagem;
-      badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg> Roteiro personalizado · ' + perfilLabel + ' · ' + perfil.dias_viagem + ' dias';
-      progWrap.parentNode.insertBefore(badge, progWrap);
+    // Fallback: tabela roteiros antiga (JSON)
+    if (perfil.roteiro_id) {
+      var roteiroRes = await _supabase.from('roteiros').select('titulo, conteudo').eq('id', perfil.roteiro_id).single();
+      if (roteiroRes.data) {
+        var header2 = document.querySelector('#overlay-roteiro .overlay-header h2');
+        if (header2) header2.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px"><path d="M9 3L3 6v15l6-3 6 3 6-3V3l-6 3-6-3z"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg> ' + roteiroRes.data.titulo;
+        _adicionarBadgePerfil(perfil);
+        buildRoteiro(converterRoteiroSupabase(roteiroRes.data.conteudo));
+        return;
+      }
     }
 
-    var dadosConvertidos = converterRoteiroSupabase(roteiro.conteudo);
-    buildRoteiro(dadosConvertidos);
-
+    buildRoteiro();
   } catch(e) {
     console.error('Erro ao carregar roteiro personalizado:', e);
     buildRoteiro();
   }
 }
+
 
 buildRoteiro();
 applyRoteiroChecked();
