@@ -572,13 +572,13 @@ body:has(#login-overlay:not(.hidden)) .overlay:not(#login-overlay) {
 .cards-scroll{display:flex;gap:10px;padding:0 16px;overflow-x:auto;scrollbar-width:none;}
 .cards-scroll::-webkit-scrollbar{display:none;}
 .card{
-  flex:0 0 138px;background:var(--bg2);border-radius:var(--radius);
+  flex:0 0 168px;background:var(--bg2);border-radius:var(--radius);
   overflow:hidden;cursor:pointer;border:1px solid var(--border);
   transition:transform 0.15s,border-color 0.15s;
 }
 .card:hover{transform:translateY(-3px);border-color:var(--border2);}
 .card-img{
-  width:100%;height:100px;display:flex;align-items:center;
+  width:100%;height:112px;display:flex;align-items:center;
   justify-content:center;overflow:hidden;position:relative;
 }
 .card-img img{
@@ -709,7 +709,7 @@ body:has(#login-overlay:not(.hidden)) .overlay:not(#login-overlay) {
 /* ── SEARCH BAR ── */
 .search-wrap{
   padding:10px 14px;background:var(--bg2);
-  border-bottom:1px solid var(--border);flex-shrink:0;
+  border-bottom:1px solid var(--border);
 }
 .search-box{
   display:flex;align-items:center;gap:8px;
@@ -1072,7 +1072,7 @@ s{color:#555;font-weight:500;}
 /* ── ROTEIRO PROGRESS ── */
 .roteiro-progress{
   padding:10px 16px 12px;background:var(--bg2);
-  border-bottom:1px solid var(--border);flex-shrink:0;
+  border-bottom:1px solid var(--border);
 }
 .roteiro-progress-top{
   display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;
@@ -1369,29 +1369,30 @@ s{color:#555;font-weight:500;}
       </h2>
     </div>
 
-    <div class="search-wrap">
-      <div class="search-box">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="search-roteiro" placeholder="Buscar no roteiro..." oninput="handleSearch(this)" autocomplete="off" autocorrect="off" spellcheck="false">
-        <button class="search-clear" id="search-roteiro-clear" onclick="clearSearch('search-roteiro')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-      </div>
-    </div>
-
-    <div class="roteiro-progress" id="roteiro-progress-wrap">
-      <div class="roteiro-progress-top">
-        <div class="roteiro-progress-label">
-          <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:var(--teal);fill:none;stroke-width:2.5;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
-          Progresso do Roteiro
+    <div class="overlay-body" id="roteiro-body">
+      <div class="search-wrap" style="position:static;margin-bottom:0;">
+        <div class="search-box">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="search-roteiro" placeholder="Buscar no roteiro..." oninput="handleSearch(this)" autocomplete="off" autocorrect="off" spellcheck="false">
+          <button class="search-clear" id="search-roteiro-clear" onclick="clearSearch('search-roteiro')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
         </div>
-        <span class="roteiro-progress-count" id="roteiro-count">0 / 0</span>
       </div>
-      <div class="roteiro-progress-track">
-        <div class="roteiro-progress-fill" id="roteiro-fill"></div>
+      <div class="roteiro-progress" id="roteiro-progress-wrap">
+        <div class="roteiro-progress-top">
+          <div class="roteiro-progress-label">
+            <svg viewBox="0 0 24 24" style="width:12px;height:12px;stroke:var(--teal);fill:none;stroke-width:2.5;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg>
+            Progresso do Roteiro
+          </div>
+          <span class="roteiro-progress-count" id="roteiro-count">0 / 0</span>
+        </div>
+        <div class="roteiro-progress-track">
+          <div class="roteiro-progress-fill" id="roteiro-fill"></div>
+        </div>
       </div>
+      <div id="roteiro-content"></div>
     </div>
-    <div class="overlay-body" id="roteiro-body"></div>
   </div>
 
   <!-- OVERLAY: PROMOÇÕES -->
@@ -1967,7 +1968,7 @@ function toggleDay(header){
 
 function buildRoteiro(dados){
   const data = dados || roteiroData;
-  const body=document.getElementById('roteiro-body');
+  const body=document.getElementById('roteiro-content') || document.getElementById('roteiro-body');
   body.innerHTML=data.map((d,i)=>`
     <div class="day-block ${i===0?'open':''}">
       <div class="day-header" onclick="toggleDay(this)">
@@ -2134,7 +2135,7 @@ function buildPromocoes(){
             <div class="attr-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg></div>
           </div>
         </div>
-        <div class="attr-details" style="padding-bottom:0;">
+        <div class="attr-details">
           ${atr ? `
           <div class="attr-detail-row"><div class="attr-detail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg></div><span class="attr-detail-text">${atr.desc}</span></div>
           <div class="attr-detail-row"><div class="attr-detail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div><span class="attr-detail-text"><strong>Horários:</strong> ${atr.horario}</span></div>
@@ -2146,8 +2147,10 @@ function buildPromocoes(){
           <div class="attr-detail-row"><div class="attr-detail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="attr-detail-text">${temDe ? `De <s style="color:#555">${p.de}</s> → ` : ''}<strong style="color:var(--yellow);">Por ${p.por}</strong></span></div>
           ${temFeriado ? `<div class="attr-detail-row"><div class="attr-detail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><span class="attr-detail-text" style="color:#fb923c;font-weight:700;">${p.feriado}</span></div>` : ''}
           `}
+          <div style="padding:12px 0 2px;">
+            ${btnDesconto}
+          </div>
         </div>
-        ${btnDesconto}
       </div>
     `}).join('')}
   `;
@@ -2215,8 +2218,8 @@ function buildRestaurantes(){
           ${temDe ? `<div class="attr-detail-row"><div class="attr-detail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="attr-detail-text">De <s style="color:#555">${r.de}</s> → <strong style="color:var(--green);">Por ${r.por}</strong></span></div>` : `<div class="attr-detail-row"><div class="attr-detail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div><span class="attr-detail-text"><strong style="color:var(--green);">Por ${r.por}</strong></span></div>`}
           ${temFeriado ? `<div class="attr-detail-row"><div class="attr-detail-icon"><svg viewBox="0 0 24 24" fill="none" stroke="#fb923c" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><span class="attr-detail-text" style="color:#fb923c;font-weight:700;">${r.feriado}</span></div>` : ''}
           ${r.url
-            ? `<a href="${r.url}" target="_blank" rel="noopener" class="btn-comprar" style="display:inline-flex;text-decoration:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;stroke:#fff;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Ver com Desconto</a>`
-            : `<button class="btn-comprar" onclick="showToast('Desconto em breve!')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;stroke:#fff;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Desconto em breve</button>`
+            ? `<a href="${r.url}" target="_blank" rel="noopener" class="btn-comprar" style="display:inline-flex;text-decoration:none;margin-top:12px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;flex-shrink:0;stroke:#fff;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Ver com Desconto</a>`
+            : `<button class="btn-comprar" onclick="showToast('Desconto em breve!')" style="margin-top:12px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:12px;height:12px;stroke:#fff;"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Desconto em breve</button>`
           }
         </div>
       </div>
@@ -2586,7 +2589,7 @@ function _adicionarBadgePerfil(perfil) {
 async function carregarRoteiroPersonalizado() {
   if (!_supabase || !currentUser) { buildRoteiro(); return; }
 
-  var body = document.getElementById('roteiro-body');
+  var body = document.getElementById('roteiro-content') || document.getElementById('roteiro-body');
   if (body) body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">⏳ Carregando seu roteiro personalizado...</div>';
 
   try {
@@ -2792,7 +2795,7 @@ function showEmpty(containerId, show) {
 }
 
 function filterRoteiro(q) {
-  const blocks = document.querySelectorAll('#roteiro-body .day-block');
+  const blocks = document.querySelectorAll('#roteiro-content .day-block');
   let found = 0;
   blocks.forEach(block => {
     const text = block.textContent.toLowerCase();
@@ -2801,9 +2804,9 @@ function filterRoteiro(q) {
     if (match) found++;
   });
   // Show tips box always
-  const tips = document.querySelector('#roteiro-body > div:last-child');
+  const tips = document.querySelector('#roteiro-content > div:last-child');
   if (tips && !tips.classList.contains('day-block')) tips.style.display = '';
-  showEmpty('roteiro-body', found === 0 && q);
+  showEmpty('roteiro-content', found === 0 && q);
 }
 
 function filterPromocoes(q) {
@@ -2870,7 +2873,7 @@ function saveRoteiroChecked(arr) {
 
 function countRoteiroTotal() {
   // Conta os itens realmente renderizados no DOM (funciona para qualquer roteiro)
-  return document.querySelectorAll('#roteiro-body .attraction-item[data-id]').length;
+  return document.querySelectorAll('#roteiro-content .attraction-item[data-id], #roteiro-body .attraction-item[data-id]').length;
 }
 
 function updateRoteiroProgress() {
