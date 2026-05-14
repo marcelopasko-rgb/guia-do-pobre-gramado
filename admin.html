@@ -163,8 +163,44 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 .dot:nth-child(3){animation-delay:0.4s;}
 @keyframes blink{0%,80%,100%{opacity:0.2;}40%{opacity:1;}}
 
-.empty{padding:32px;text-align:center;color:var(--muted);font-size:11px;}
-</style>
+/* ── TABELA USUÁRIOS ── */
+.table-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
+.table-card table{width:100%;border-collapse:collapse;font-size:11px;}
+.table-card th{
+  background:var(--bg3);color:var(--muted);font-size:9px;text-transform:uppercase;
+  letter-spacing:1px;font-weight:700;padding:10px 16px;text-align:left;
+  border-bottom:1px solid var(--border);
+}
+.table-card td{padding:9px 16px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;}
+.table-card tr:last-child td{border-bottom:none;}
+.table-card tr:hover td{background:var(--bg3);}
+.user-email{color:var(--blue);font-size:11px;}
+.user-badge{
+  font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;
+  text-transform:uppercase;letter-spacing:0.5px;
+}
+.badge-ativo{background:rgba(63,185,80,0.15);color:var(--green);}
+.badge-inativo{background:rgba(139,148,158,0.1);color:var(--muted);}
+
+/* ── PICO ── */
+.pico-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;}
+.pico-col{display:flex;flex-direction:column;align-items:center;gap:4px;}
+.pico-bar-wrap{width:100%;height:60px;display:flex;align-items:flex-end;}
+.pico-bar{width:100%;border-radius:3px 3px 0 0;min-height:2px;transition:height 0.6s;}
+.pico-label{font-size:8px;color:var(--muted);}
+
+/* ── STAT RED ── */
+.stat-card.red::before{background:var(--red);}
+.stat-value.red{color:var(--red);}
+
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+@media(max-width:900px){.three-col{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.three-col{grid-template-columns:1fr;}}
+
+.sem-clique{font-size:11px;color:var(--muted);padding:6px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
+.sem-clique:last-child{border-bottom:none;}
+.sem-clique-dot{width:5px;height:5px;border-radius:50%;background:var(--border2);flex-shrink:0;}
+
 </head>
 <body>
 
@@ -216,6 +252,16 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
           <div class="stat-value blue" id="stat-users">—</div>
           <div class="stat-sub" id="stat-users-sub">carregando...</div>
         </div>
+        <div class="stat-card red">
+          <div class="stat-label">Total de Cliques</div>
+          <div class="stat-value red" id="stat-total">—</div>
+          <div class="stat-sub" id="stat-total-sub">carregando...</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Média / Usuário</div>
+          <div class="stat-value green" id="stat-media">—</div>
+          <div class="stat-sub">cliques por usuário</div>
+        </div>
       </div>
     </div>
 
@@ -229,18 +275,72 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       </div>
     </div>
 
-    <!-- RANKINGS -->
+    <!-- RANKINGS EXPANDIDO -->
     <div class="section">
-      <div class="section-title">Rankings</div>
-      <div class="two-col">
+      <div class="section-title">Rankings completos</div>
+      <div class="three-col">
         <div class="rank-card">
-          <div class="rank-title">🎢 Parques mais clicados</div>
+          <div class="rank-title">🎢 Parques</div>
           <div id="rank-parques"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
         </div>
         <div class="rank-card">
-          <div class="rank-title">🍽️ Restaurantes mais clicados</div>
+          <div class="rank-title">🍽️ Restaurantes</div>
           <div id="rank-restaurantes"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
         </div>
+        <div class="rank-card">
+          <div class="rank-title">🎡 Atrações</div>
+          <div id="rank-atracoes"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- HORÁRIOS DE PICO -->
+    <div class="section">
+      <div class="section-title">Horários de pico</div>
+      <div class="chart-card">
+        <div class="chart-title" style="font-size:11px;color:var(--muted);margin-bottom:16px;">Cliques por hora do dia (horário de Brasília)</div>
+        <div class="pico-grid" id="pico-horas"></div>
+      </div>
+    </div>
+
+    <!-- USUÁRIOS + SEM CLIQUE -->
+    <div class="section">
+      <div class="section-title">Usuários e engajamento</div>
+      <div class="two-col">
+
+        <!-- Top usuários -->
+        <div class="rank-card">
+          <div class="rank-title">👤 Usuários mais ativos</div>
+          <div id="rank-usuarios"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+        </div>
+
+        <!-- Itens sem clique -->
+        <div class="rank-card">
+          <div class="rank-title">💤 Parques sem nenhum clique</div>
+          <div id="sem-cliques"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LISTA DE USUÁRIOS CADASTRADOS -->
+    <div class="section">
+      <div class="section-title">Usuários cadastrados</div>
+      <div class="table-card">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>E-mail</th>
+              <th>Cadastro</th>
+              <th>Último acesso</th>
+              <th>Cliques</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="tabela-usuarios">
+            <tr><td colspan="6"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -248,7 +348,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
     <div class="section">
       <div class="section-title">Eventos recentes</div>
       <div class="feed-card">
-        <div class="feed-title">Últimos 50 cliques</div>
+        <div class="feed-title">Últimos 100 cliques</div>
         <div id="feed-eventos"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
       </div>
     </div>
@@ -258,10 +358,20 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 
 <script>
 const SUPABASE_URL  = 'https://jltxatuypkmchitkafkq.supabase.co';
-// ⚠️ Substitua pela sua SERVICE ROLE KEY (não a anon key)
-// Painel Supabase → Project Settings → API → service_role
 const SERVICE_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsdHhhdHV5cGttY2hpdGthZmtxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU0MDY4MywiZXhwIjoyMDk0MTE2NjgzfQ.hAWEm5Gr0Vy_w1-I95umY0X2Pvvy3Yy5qcKsMtQyyg4';
-const SENHA_CORRETA = 'narutointer00EM*'; // Troque para a senha que quiser
+const SENHA_CORRETA = 'narutointer00EM*';
+
+// Lista completa de parques para detectar os sem clique
+const TODOS_PARQUES = ['Snowland','Skyglass Canela','Bondinhos Aéreos Canela','Space Adventure',
+  'Parque Terra Mágica Florybal','Mundo a Vapor','NBA Park','Alpen Park','Oficina Criamigos',
+  'Mini Mundo','Vila da Mônica','Olivas de Gramado','Acquamotion','Lumni Experience',
+  'Parque do Caracol','Exceed Park','Garden Park','Mátria Parque das Flores',
+  'Vale dos Dinossauros Canela','Aldeia do Papai Noel','Cristais de Gramado',
+  'Reino do Chocolate','Mundo Lugano','UDrive Exotic Cars','Selfie Gramado',
+  'Hollywood Dream Cars','Museu do Automóvel de Canela','Dreams Motor Show',
+  'Jardim do Amor','Big Land','Espaço Kids Sky Palace','Fabulosa Máquina de Doces',
+  'Chocoland','Vitivinícola Jolimont','Museu de Cera Dreamland','Super Carros',
+  'Museu do Vinho','Pedras do Silêncio','Canyons e Balões','Kongo Pizzaria','Cervejaria Farol'];
 
 let _sb = null;
 let chartInstance = null;
@@ -285,65 +395,78 @@ function iniciarDashboard() {
 async function carregarDados() {
   document.getElementById('last-update').textContent = 'Atualizando...';
   try {
-    const [eventos] = await Promise.all([
-      _sb.from('eventos').select('*').order('criado_em', { ascending: false }).limit(500)
+    const [evRes, usRes] = await Promise.all([
+      _sb.from('eventos').select('*').order('criado_em', { ascending: false }).limit(1000),
+      _sb.auth.admin.listUsers({ perPage: 200 })
     ]);
-    if (eventos.error) throw eventos.error;
-    const dados = eventos.data || [];
-    renderStats(dados);
+    if (evRes.error) throw evRes.error;
+
+    const dados   = evRes.data || [];
+    const users   = usRes.data?.users || [];
+
+    renderStats(dados, users);
     renderChart(dados);
     renderRankings(dados);
+    renderPico(dados);
+    renderTopUsuarios(dados, users);
+    renderSemCliques(dados);
+    renderTabelaUsuarios(dados, users);
     renderFeed(dados);
+
     const agora = new Date();
     document.getElementById('last-update').textContent =
       'Atualizado às ' + agora.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
   } catch(e) {
     console.error(e);
-    document.getElementById('last-update').textContent = 'Erro ao carregar — verifique a service key';
+    document.getElementById('last-update').textContent = 'Erro: ' + e.message;
   }
 }
 
 function hoje() { return new Date().toISOString().split('T')[0]; }
 function diasAtras(n) {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
+  const d = new Date(); d.setDate(d.getDate() - n);
   return d.toISOString().split('T')[0];
 }
 
-function renderStats(dados) {
-  const dHoje = hoje();
+/* ── STATS ── */
+function renderStats(dados, users) {
+  const dHoje   = hoje();
   const dSemana = diasAtras(7);
-  const dMes = diasAtras(30);
+  const dMes    = diasAtras(30);
 
-  const cliquesHoje  = dados.filter(e => e.criado_em?.startsWith(dHoje)).length;
+  const cliquesHoje   = dados.filter(e => e.criado_em?.startsWith(dHoje)).length;
   const cliquesSemana = dados.filter(e => e.criado_em >= dSemana).length;
-  const cliquesMes   = dados.filter(e => e.criado_em >= dMes).length;
-  const usersUnicos  = new Set(dados.filter(e => e.user_id).map(e => e.user_id)).size;
+  const cliquesMes    = dados.filter(e => e.criado_em >= dMes).length;
+  const usersUnicos   = new Set(dados.filter(e => e.user_id).map(e => e.user_id)).size;
+  const total         = dados.length;
+  const media         = usersUnicos > 0 ? (total / usersUnicos).toFixed(1) : '—';
 
   const topHoje = dados
     .filter(e => e.criado_em?.startsWith(dHoje) && e.payload?.nome)
     .reduce((acc, e) => { acc[e.payload.nome] = (acc[e.payload.nome]||0)+1; return acc; }, {});
   const topNome = Object.entries(topHoje).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
 
-  document.getElementById('stat-hoje').textContent = cliquesHoje;
+  document.getElementById('stat-hoje').textContent     = cliquesHoje;
   document.getElementById('stat-hoje-sub').textContent = 'Top: ' + topNome;
-  document.getElementById('stat-semana').textContent = cliquesSemana;
+  document.getElementById('stat-semana').textContent   = cliquesSemana;
   document.getElementById('stat-semana-sub').textContent = 'últimos 7 dias';
-  document.getElementById('stat-mes').textContent = cliquesMes;
-  document.getElementById('stat-mes-sub').textContent = 'últimos 30 dias';
-  document.getElementById('stat-users').textContent = usersUnicos;
-  document.getElementById('stat-users-sub').textContent = 'com conta ativa';
+  document.getElementById('stat-mes').textContent      = cliquesMes;
+  document.getElementById('stat-mes-sub').textContent  = 'últimos 30 dias';
+  document.getElementById('stat-users').textContent    = usersUnicos;
+  document.getElementById('stat-users-sub').textContent = users.length + ' cadastrados total';
+  document.getElementById('stat-total').textContent    = total;
+  document.getElementById('stat-total-sub').textContent = 'todos os tempos';
+  document.getElementById('stat-media').textContent    = media;
 }
 
+/* ── GRÁFICO ── */
 function renderChart(dados) {
-  const dias = [];
-  const counts = [];
+  const dias = [], counts = [];
   for (let i = 29; i >= 0; i--) {
     const d = diasAtras(i);
-    dias.push(d.slice(5)); // MM-DD
+    dias.push(d.slice(5));
     counts.push(dados.filter(e => e.criado_em?.startsWith(d)).length);
   }
-
   const ctx = document.getElementById('chart-dias').getContext('2d');
   if (chartInstance) chartInstance.destroy();
   chartInstance = new Chart(ctx, {
@@ -352,21 +475,16 @@ function renderChart(dados) {
       labels: dias,
       datasets: [{
         data: counts,
-        backgroundColor: counts.map(v => v > 0 ? 'rgba(240,180,41,0.7)' : 'rgba(240,180,41,0.15)'),
+        backgroundColor: counts.map(v => v > 0 ? 'rgba(240,180,41,0.7)' : 'rgba(240,180,41,0.1)'),
         borderColor: 'rgba(240,180,41,0.9)',
-        borderWidth: 1,
-        borderRadius: 3,
+        borderWidth: 1, borderRadius: 3,
       }]
     },
     options: {
-      responsive: true,
-      maintainAspectRatio: false,
+      responsive: true, maintainAspectRatio: false,
       plugins: { legend: { display: false }, tooltip: {
-        backgroundColor: '#161b22',
-        borderColor: '#21262d',
-        borderWidth: 1,
-        titleColor: '#e6edf3',
-        bodyColor: '#8b949e',
+        backgroundColor: '#161b22', borderColor: '#21262d', borderWidth: 1,
+        titleColor: '#e6edf3', bodyColor: '#8b949e',
         callbacks: { title: i => i[0].label, label: i => i.raw + ' cliques' }
       }},
       scales: {
@@ -377,51 +495,136 @@ function renderChart(dados) {
   });
 }
 
+/* ── RANKINGS ── */
 function renderRankings(dados) {
-  const parques = agrupar(dados.filter(e => e.evento === 'clique_parque'));
-  const rests   = agrupar(dados.filter(e => e.evento === 'clique_restaurante'));
-  document.getElementById('rank-parques').innerHTML     = buildRanking(parques, '#f0b429');
-  document.getElementById('rank-restaurantes').innerHTML = buildRanking(rests, '#3fb950');
+  document.getElementById('rank-parques').innerHTML    = buildRanking(agrupar(dados.filter(e => e.evento === 'clique_parque')), '#f0b429');
+  document.getElementById('rank-restaurantes').innerHTML = buildRanking(agrupar(dados.filter(e => e.evento === 'clique_restaurante')), '#3fb950');
+  document.getElementById('rank-atracoes').innerHTML   = buildRanking(agrupar(dados.filter(e => e.evento === 'clique_atracao')), '#58a6ff');
 }
 
 function agrupar(lista) {
   const acc = {};
-  lista.forEach(e => {
-    const nome = e.payload?.nome || 'Desconhecido';
-    acc[nome] = (acc[nome] || 0) + 1;
-  });
+  lista.forEach(e => { const n = e.payload?.nome || 'Desconhecido'; acc[n] = (acc[n]||0)+1; });
   return Object.entries(acc).sort((a,b) => b[1]-a[1]).slice(0, 10);
 }
 
 function buildRanking(itens, cor) {
-  if (!itens.length) return '<div class="empty">Nenhum clique registrado ainda.</div>';
+  if (!itens.length) return '<div class="empty">Nenhum clique ainda.</div>';
   const max = itens[0][1];
   return itens.map(([nome, count], i) => `
     <div class="rank-item">
       <span class="rank-num">${i+1}</span>
       <div class="rank-bar-wrap">
         <div class="rank-name">${nome}</div>
-        <div class="rank-bar-bg">
-          <div class="rank-bar-fill" style="width:${Math.round(count/max*100)}%;background:${cor};"></div>
-        </div>
+        <div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${Math.round(count/max*100)}%;background:${cor};"></div></div>
       </div>
       <span class="rank-count" style="color:${cor};">${count}</span>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
-function renderFeed(dados) {
-  const recentes = dados.slice(0, 50);
-  if (!recentes.length) {
-    document.getElementById('feed-eventos').innerHTML = '<div class="empty">Nenhum evento ainda.</div>';
+/* ── PICO DE HORÁRIOS ── */
+function renderPico(dados) {
+  const contagem = Array(24).fill(0);
+  dados.forEach(e => {
+    if (!e.criado_em) return;
+    // Ajusta para horário de Brasília (UTC-3)
+    const h = (new Date(e.criado_em).getUTCHours() - 3 + 24) % 24;
+    contagem[h]++;
+  });
+  const max = Math.max(...contagem, 1);
+  // Mostra só 7h-23h (horário útil)
+  const faixa = Array.from({length: 17}, (_, i) => i + 7);
+  document.getElementById('pico-horas').innerHTML = faixa.map(h => {
+    const pct = Math.round(contagem[h] / max * 100);
+    const cor = pct > 70 ? 'var(--red)' : pct > 40 ? 'var(--orange)' : pct > 15 ? 'var(--yellow)' : 'var(--border2)';
+    return `
+      <div class="pico-col">
+        <div class="pico-bar-wrap">
+          <div class="pico-bar" style="height:${Math.max(pct,2)}%;background:${cor};width:100%;"></div>
+        </div>
+        <div class="pico-label">${h}h</div>
+        <div class="pico-label" style="color:var(--text);font-weight:700;">${contagem[h]||''}</div>
+      </div>`;
+  }).join('');
+}
+
+/* ── TOP USUÁRIOS ── */
+function renderTopUsuarios(dados, users) {
+  const contagem = {};
+  dados.filter(e => e.user_id).forEach(e => { contagem[e.user_id] = (contagem[e.user_id]||0)+1; });
+  const top = Object.entries(contagem).sort((a,b)=>b[1]-a[1]).slice(0, 8);
+  if (!top.length) { document.getElementById('rank-usuarios').innerHTML = '<div class="empty">Nenhum clique com usuário logado.</div>'; return; }
+  const max = top[0][1];
+  document.getElementById('rank-usuarios').innerHTML = top.map(([uid, count], i) => {
+    const user = users.find(u => u.id === uid);
+    const email = user?.email ? user.email.split('@')[0] + '@…' : uid.slice(0,8) + '…';
+    return `
+      <div class="rank-item">
+        <span class="rank-num">${i+1}</span>
+        <div class="rank-bar-wrap">
+          <div class="rank-name">${email}</div>
+          <div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${Math.round(count/max*100)}%;background:var(--blue);"></div></div>
+        </div>
+        <span class="rank-count" style="color:var(--blue);">${count}</span>
+      </div>`;
+  }).join('');
+}
+
+/* ── SEM CLIQUES ── */
+function renderSemCliques(dados) {
+  const comClique = new Set(dados.filter(e => e.evento==='clique_parque' && e.payload?.nome).map(e => e.payload.nome.toLowerCase()));
+  const semClique = TODOS_PARQUES.filter(p => !comClique.has(p.toLowerCase()));
+  if (!semClique.length) {
+    document.getElementById('sem-cliques').innerHTML = '<div class="empty" style="color:var(--green);">✓ Todos têm pelo menos 1 clique!</div>';
     return;
   }
+  document.getElementById('sem-cliques').innerHTML = semClique.map(p => `
+    <div class="sem-clique">
+      <div class="sem-clique-dot"></div>
+      <span>${p}</span>
+    </div>`).join('');
+}
+
+/* ── TABELA USUÁRIOS ── */
+function renderTabelaUsuarios(dados, users) {
+  if (!users.length) {
+    document.getElementById('tabela-usuarios').innerHTML = '<tr><td colspan="6"><div class="empty">Não foi possível carregar usuários. Verifique a service key.</div></td></tr>';
+    return;
+  }
+  const cliquesUser = {};
+  dados.filter(e => e.user_id).forEach(e => { cliquesUser[e.user_id] = (cliquesUser[e.user_id]||0)+1; });
+
+  const sorted = [...users].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  document.getElementById('tabela-usuarios').innerHTML = sorted.map((u, i) => {
+    const cliques = cliquesUser[u.id] || 0;
+    const criado  = new Date(u.created_at).toLocaleDateString('pt-BR');
+    const ultimo  = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString('pt-BR') : '—';
+    const diasSem = u.last_sign_in_at
+      ? Math.floor((Date.now() - new Date(u.last_sign_in_at)) / 86400000)
+      : 999;
+    const ativo = diasSem <= 30;
+    return `
+      <tr>
+        <td style="color:var(--muted);">${i+1}</td>
+        <td><span class="user-email">${u.email || '—'}</span></td>
+        <td style="color:var(--muted);">${criado}</td>
+        <td style="color:var(--muted);">${ultimo}</td>
+        <td style="color:${cliques > 0 ? 'var(--yellow)' : 'var(--muted)'};font-weight:${cliques>0?'700':'400'};">${cliques}</td>
+        <td><span class="user-badge ${ativo ? 'badge-ativo' : 'badge-inativo'}">${ativo ? 'Ativo' : 'Inativo'}</span></td>
+      </tr>`;
+  }).join('');
+}
+
+/* ── FEED ── */
+function renderFeed(dados) {
+  const recentes = dados.slice(0, 100);
+  if (!recentes.length) { document.getElementById('feed-eventos').innerHTML = '<div class="empty">Nenhum evento ainda.</div>'; return; }
   document.getElementById('feed-eventos').innerHTML = recentes.map(e => {
     const badge = {
       clique_parque:      '<span class="feed-badge badge-parque">Parque</span>',
       clique_restaurante: '<span class="feed-badge badge-restaurante">Restaurante</span>',
       clique_atracao:     '<span class="feed-badge badge-atracao">Atração</span>',
-    }[e.evento] || '<span class="feed-badge badge-outro">' + (e.evento || '?') + '</span>';
+    }[e.evento] || `<span class="feed-badge badge-outro">${e.evento||'?'}</span>`;
     const nome = e.payload?.nome || '—';
     const hora = new Date(e.criado_em).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     return `
