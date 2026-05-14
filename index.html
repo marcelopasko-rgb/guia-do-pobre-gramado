@@ -681,6 +681,7 @@ body:has(#login-overlay:not(.hidden)) .overlay:not(#login-overlay) {
   bottom:calc(var(--tab-h) + env(safe-area-inset-bottom, 0px));
   background:var(--bg);z-index:150;display:none;flex-direction:column;
   max-width:100%;
+  overflow:hidden;
 }
 .overlay.open{display:flex;}
 .overlay-header{
@@ -1294,6 +1295,7 @@ s{color:#555;font-weight:500;}
       <a href="#">Ver todos</a>
     </div>
     <div class="cards-scroll">
+      <a href="https://parksnet.com.br/destino/serra-gaucha/versoi-fondue?bookingAgency=5248&cupom=PARKSNETEXTRA" target="_blank" rel="noopener" style="text-decoration:none;color:inherit;">
       <div class="card">
         <div class="card-img ci-fondue">
           <img src="https://dynamic-media-cdn.tripadvisor.com/media/photo-o/29/c7/1c/cc/caption.jpg?w=900&h=500&s=1" alt="Sequência de Fondue" loading="lazy" onerror="this.style.display='none'">
@@ -1303,6 +1305,7 @@ s{color:#555;font-weight:500;}
           <span class="badge badge-orange">Custo Benefício</span>
         </div>
       </div>
+      </a>
       <div class="card">
         <div class="card-img ci-lago">
           <img src="https://passagemcomprada.com.br/wp-content/uploads/2021/08/Novo-Lago-Negro-5.jpg.jpeg" alt="Lago Negro" loading="lazy" onerror="this.style.display='none'">
@@ -1337,8 +1340,8 @@ s{color:#555;font-weight:500;}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
       </div>
       <div class="rota-text">
-        <h5>Roteiro Completo — 7 Dias</h5>
-        <p>Curtir Gramado gastando pouco e sendo feliz!</p>
+        <h5 id="rota-banner-titulo">Roteiro Completo — 7 Dias</h5>
+        <p id="rota-banner-sub">Curtir Gramado gastando pouco e sendo feliz!</p>
       </div>
       <div class="rota-arrow">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
@@ -1350,7 +1353,7 @@ s{color:#555;font-weight:500;}
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="9" y1="18" x2="15" y2="18"/><line x1="10" y1="22" x2="14" y2="22"/><path d="M15.09 14c.18-.98.65-1.74 1.41-2.5A4.65 4.65 0 0 0 18 8 6 6 0 0 0 6 8c0 1 .23 2.23 1.5 3.5A4.61 4.61 0 0 1 8.91 14"/></svg>
         <h5>Dica do Pobre do Dia</h5>
       </div>
-      <p class="dica-text">Evite Gramado nos fins de semana de novembro. Em dias de semana, os <strong>preços caem até 40%</strong> e as filas somem. Pobre esperto viaja na terça!</p>
+      <p class="dica-text">Evite Gramado nos fins de semana e feriados. Em dias de semana, os <strong>preços caem até 40%</strong> e as filas somem. Pobre esperto viaja na terça!</p>
     </div>
   </div><!-- /home-scroll -->
 
@@ -1367,8 +1370,6 @@ s{color:#555;font-weight:500;}
     </div>
 
     <div class="search-wrap">
-      <!-- Subtítulo personalizado — aparece após login -->
-      <div id="roteiro-subtitulo" style="display:none;padding:0 16px 10px;font-size:12px;color:var(--muted);font-style:italic;text-align:center;line-height:1.5;"></div>
       <div class="search-box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
         <input type="text" id="search-roteiro" placeholder="Buscar no roteiro..." oninput="handleSearch(this)" autocomplete="off" autocorrect="off" spellcheck="false">
@@ -2100,7 +2101,7 @@ const parques=[
 function buildPromocoes(){
   const body=document.getElementById('promocoes-body');
   body.innerHTML=`
-    <div style="padding:12px 18px 10px;background:#1a1a00;border-bottom:1px solid #2a2800;">
+    <div style="padding:12px 18px 10px;background:#1a1a00;border-bottom:1px solid #2a2800;border-top:1px solid #2a2800;">
       <p style="font-size:11px;color:#c0a820;font-weight:700;">Desconto exclusivo do Guia do Pobre. Clique e garanta antes que acabe!</p>
     </div>
     ${parques.map(p=>{
@@ -2191,7 +2192,7 @@ const restaurantes=[
 function buildRestaurantes(){
   const body=document.getElementById('restaurantes-body');
   body.innerHTML=`
-    <div style="padding:12px 18px 10px;background:#0f1a0f;border-bottom:1px solid #1a2a1a;">
+    <div style="padding:12px 18px 10px;background:#0f1a0f;border-bottom:1px solid #1a2a1a;border-top:1px solid #1a2a1a;">
       <p style="font-size:11px;color:#2ecc71;font-weight:700;">Desconto exclusivo do Guia do Pobre. Clique e garanta sua mesa!</p>
     </div>
     ${restaurantes.map(r=>{
@@ -2541,19 +2542,33 @@ function converterRoteiroPorSlug(linhas, atracoes) {
 }
 
 function _adicionarBadgePerfil(perfil) {
-  // Atualiza card de dias na home
+  // Atualiza card de dias na home (stats)
   var heroDias = document.getElementById('hero-dias-val');
   if (heroDias && perfil.dias_viagem) {
     heroDias.textContent = perfil.dias_viagem + (perfil.dias_viagem === 1 ? ' dia' : ' dias');
   }
 
-  // Subtítulo personalizado no roteiro
-  var subtitulo = document.getElementById('roteiro-subtitulo');
-  if (subtitulo && currentUser) {
+  // Atualiza banner "Roteiro Completo — X Dias" na home
+  var perfilLabel = { familia:'Família', casal:'Casal', melhor_idade:'Melhor Idade', viajante_solo:'Viajante Solo' }[perfil.perfil_viagem] || perfil.perfil_viagem;
+  var bannerTitulo = document.getElementById('rota-banner-titulo');
+  if (bannerTitulo && perfil.dias_viagem) {
+    bannerTitulo.textContent = 'Roteiro ' + perfilLabel + ' — ' + perfil.dias_viagem + (perfil.dias_viagem === 1 ? ' Dia' : ' Dias');
+  }
+  var bannerSub = document.getElementById('rota-banner-sub');
+  if (bannerSub && currentUser) {
     var nome = (currentUser.user_metadata && currentUser.user_metadata.full_name)
       ? currentUser.user_metadata.full_name.split(' ')[0]
       : currentUser.email.split('@')[0];
-    subtitulo.textContent = '✨ Personalizado com carinho para ' + nome;
+    bannerSub.textContent = 'Personalizado com carinho para ' + nome + ' ✨';
+  }
+
+  // Subtítulo dentro do overlay do roteiro
+  var subtitulo = document.getElementById('roteiro-subtitulo');
+  if (subtitulo && currentUser) {
+    var nome2 = (currentUser.user_metadata && currentUser.user_metadata.full_name)
+      ? currentUser.user_metadata.full_name.split(' ')[0]
+      : currentUser.email.split('@')[0];
+    subtitulo.textContent = '✨ Personalizado com carinho para ' + nome2;
     subtitulo.style.display = 'block';
   }
 
@@ -2561,8 +2576,7 @@ function _adicionarBadgePerfil(perfil) {
   if (progWrap && !document.getElementById('roteiro-badge-personalizado')) {
     var badge = document.createElement('div');
     badge.id = 'roteiro-badge-personalizado';
-    badge.style.cssText = 'margin:0 16px 10px;background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.25);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--teal);font-weight:700;display:flex;align-items:center;gap:6px;';
-    var perfilLabel = { familia:'Família', casal:'Casal', melhor_idade:'Melhor Idade', viajante_solo:'Viajante Solo' }[perfil.perfil_viagem] || perfil.perfil_viagem;
+    badge.style.cssText = 'margin:10px 16px 10px;background:rgba(20,184,166,0.1);border:1px solid rgba(20,184,166,0.25);border-radius:10px;padding:8px 12px;font-size:11px;color:var(--teal);font-weight:700;display:flex;align-items:center;gap:6px;';
     badge.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px;flex-shrink:0;"><polyline points="20 6 9 17 4 12"/></svg> Roteiro personalizado · ' + perfilLabel + ' · ' + perfil.dias_viagem + ' dias';
     progWrap.parentNode.insertBefore(badge, progWrap);
   }
