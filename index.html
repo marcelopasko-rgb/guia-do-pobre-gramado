@@ -3636,8 +3636,44 @@ function onLoginSuccess(user) {
   setTimeout(pwaTrigger, 3500);
 }
 
-// Gatilho PWA no primeiro clique em botão de desconto
-let _pwaDiscountTriggered = false;
+/* ═══ TRACKING DE CLIQUES ═══ */
+async function track(evento, payload = {}) {
+  try {
+    if (!_supabase) return;
+    const { data: { user } } = await _supabase.auth.getUser();
+    await _supabase.from('eventos').insert({
+      user_id: user?.id || null,
+      evento,
+      payload
+    });
+  } catch(e) {}
+}
+
+// Delegação de eventos — captura cliques em botões de desconto em todas as abas
+document.addEventListener('click', function(e) {
+  const btn = e.target.closest('.btn-comprar, .btn-roteiro-desconto');
+  if (!btn) return;
+
+  // Descobre em qual overlay estamos
+  const overlay = btn.closest('.overlay');
+  const overlayId = overlay ? overlay.id : 'home';
+
+  // Pega o nome do item pelo elemento pai mais próximo com título
+  const card = btn.closest('.attr-card, .park-item, [class*="rest"]');
+  const titulo = card
+    ? (card.querySelector('h5')?.textContent || card.querySelector('.park-name')?.textContent || '').trim()
+    : '';
+
+  // Identifica o tipo de evento pela aba
+  let evento = 'clique_desconto';
+  if (overlayId === 'overlay-promocoes') evento = 'clique_parque';
+  else if (overlayId === 'overlay-restaurantes') evento = 'clique_restaurante';
+  else if (overlayId === 'overlay-atracoes') evento = 'clique_atracao';
+
+  track(evento, { nome: titulo, overlay: overlayId, href: btn.href || null });
+});
+
+
 document.addEventListener('click', function(e) {
   if (!_pwaDiscountTriggered && e.target.closest('.btn-comprar, .btn-roteiro-desconto')) {
     _pwaDiscountTriggered = true;
