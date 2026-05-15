@@ -3254,8 +3254,6 @@ async function publishPost() {
     tag,
     texto,
     foto_url: fotoUrl,
-    reacoes:  {},
-    comentarios: [],
     user_id:  currentUser.id,
     tempo:    new Date().toISOString()
   };
@@ -3287,23 +3285,56 @@ async function publishPost() {
 
 // ── TOGGLE REAÇÃO ─────────────────────────────────────────────────────────
 async function toggleReacao(postId, emoji) {
+  if (!currentUser) { showToast('Faça login para reagir! 🔒'); return; }
+  if (!_supabase) return;
+
   const post = _postsCache.find(p => p.id === postId);
   if (!post) return;
   if (!post.reacoes) post.reacoes = {};
-  const key = 'reagi_' + postId + '_' + emoji;
-  const jáReagiu = sessionStorage.getItem(key);
-  if (jáReagiu) {
+  if (!post.minhasReacoes) post.minhasReacoes = {};
+
+  const jaReagi = !!post.minhasReacoes[emoji];
+
+  // Atualização otimista (UI responde imediatamente)
+  if (jaReagi) {
     post.reacoes[emoji] = Math.max(0, (post.reacoes[emoji] || 1) - 1);
     if (post.reacoes[emoji] === 0) delete post.reacoes[emoji];
-    sessionStorage.removeItem(key);
+    delete post.minhasReacoes[emoji];
   } else {
     post.reacoes[emoji] = (post.reacoes[emoji] || 0) + 1;
-    sessionStorage.setItem(key, '1');
-  }
-  if (_supabase) {
-    await _supabase.from('comunidade_posts').update({ reacoes: post.reacoes }).eq('id', postId);
+    post.minhasReacoes[emoji] = true;
   }
   renderComunidade();
+
+  // Persiste no banco
+  let error;
+  if (jaReagi) {
+    const res = await _supabase
+      .from('comunidade_reacoes')
+      .delete()
+      .match({ post_id: postId, user_id: currentUser.id, emoji: emoji });
+    error = res.error;
+  } else {
+    const res = await _supabase
+      .from('comunidade_reacoes')
+      .insert([{ post_id: postId, user_id: currentUser.id, emoji: emoji }]);
+    error = res.error;
+  }
+
+  // Se der erro, reverte e mostra
+  if (error) {
+    console.error('toggleReacao error:', error);
+    if (jaReagi) {
+      post.reacoes[emoji] = (post.reacoes[emoji] || 0) + 1;
+      post.minhasReacoes[emoji] = true;
+    } else {
+      post.reacoes[emoji] = Math.max(0, (post.reacoes[emoji] || 1) - 1);
+      if (post.reacoes[emoji] === 0) delete post.reacoes[emoji];
+      delete post.minhasReacoes[emoji];
+    }
+    renderComunidade();
+    showToast('Erro ao reagir: ' + (error.message || 'tente novamente'));
+  }
 }
 
 // ── COMMENT BOX ───────────────────────────────────────────────────────────
@@ -3349,18 +3380,40 @@ async function submitComment(postId) {
   const post = _postsCache.find(p => p.id === postId);
   if (!post) return;
   if (!post.comentarios) post.comentarios = [];
+
   const nome = (getDisplayName() || 'Membro').slice(0, 80);
-  const comentario = { autor: nome, cor: getAvatarColor(nome), texto: texto };
-  post.comentarios.push(comentario);
+  const novoComentario = {
+    post_id: postId,
+    user_id: currentUser.id,
+    autor: nome,
+    cor: getAvatarColor(nome),
+    texto: texto
+  };
+
+  // Atualização otimista
+  const comentarioLocal = Object.assign({}, novoComentario, { _temp: true });
+  post.comentarios.push(comentarioLocal);
+  inp.value = '';
+  renderComunidade();
+
   if (_supabase) {
-    const { error } = await _supabase.from('comunidade_posts').update({ comentarios: post.comentarios }).eq('id', postId);
+    const { data, error } = await _supabase
+      .from('comunidade_comentarios')
+      .insert([novoComentario])
+      .select()
+      .single();
     if (error) {
+      // Reverte
+      const idx = post.comentarios.indexOf(comentarioLocal);
+      if (idx !== -1) post.comentarios.splice(idx, 1);
+      renderComunidade();
       showToast('Erro ao comentar: ' + (error.message || 'tente novamente'));
       console.error('submitComment error:', error);
       return;
     }
-    await loadPosts();
-  } else {
+    // Substitui o temporário pelo real (com id e created_at)
+    const idx = post.comentarios.indexOf(comentarioLocal);
+    if (idx !== -1 && data) post.comentarios[idx] = data;
     renderComunidade();
   }
   showToast('Comentário publicado! 💬');
@@ -3373,24 +3426,65 @@ async function loadPosts() {
   if (feed && _postsCache.length === 0) {
     feed.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">Carregando posts...</div>';
   }
-  const { data, error } = await _supabase
-    .from('comunidade_posts')
-    .select('*')
-    .order('tempo', { ascending: false })
-    .limit(50);
-  if (error) {
-    console.error('loadPosts:', error);
+
+  // Busca posts, reações e comentários em paralelo
+  const [postsRes, reacoesRes, comentariosRes] = await Promise.all([
+    _supabase.from('comunidade_posts').select('*').order('tempo', { ascending: false }).limit(50),
+    _supabase.from('comunidade_reacoes').select('post_id, user_id, emoji'),
+    _supabase.from('comunidade_comentarios').select('*').order('created_at', { ascending: true })
+  ]);
+
+  if (postsRes.error) {
+    console.error('loadPosts (posts):', postsRes.error);
     if (feed) feed.innerHTML = `<div style="text-align:center;padding:32px;color:#f87171;font-size:12px;">
-      Erro ao carregar posts: ${error.message || error.code}<br>
+      Erro ao carregar posts: ${postsRes.error.message || postsRes.error.code}<br>
       <button onclick="loadPosts()" style="margin-top:12px;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:8px 16px;cursor:pointer;font-family:'Space Grotesk',sans-serif;font-size:12px;">Tentar novamente</button>
     </div>`;
     return;
   }
-  _postsCache = data || [];
+
+  const posts = postsRes.data || [];
+  const reacoes = reacoesRes.data || [];
+  const comentarios = comentariosRes.data || [];
+  const meuId = currentUser ? currentUser.id : null;
+
+  // Agrupa reações por post: { postId: { emoji: count } } e marca quais são minhas
+  const reacoesPorPost = {};
+  const minhasReacoesPorPost = {};
+  reacoes.forEach(r => {
+    if (!reacoesPorPost[r.post_id]) reacoesPorPost[r.post_id] = {};
+    reacoesPorPost[r.post_id][r.emoji] = (reacoesPorPost[r.post_id][r.emoji] || 0) + 1;
+    if (meuId && r.user_id === meuId) {
+      if (!minhasReacoesPorPost[r.post_id]) minhasReacoesPorPost[r.post_id] = {};
+      minhasReacoesPorPost[r.post_id][r.emoji] = true;
+    }
+  });
+
+  // Agrupa comentários por post
+  const comentariosPorPost = {};
+  comentarios.forEach(c => {
+    if (!comentariosPorPost[c.post_id]) comentariosPorPost[c.post_id] = [];
+    comentariosPorPost[c.post_id].push(c);
+  });
+
+  // Anexa dados agregados em cada post
+  posts.forEach(p => {
+    p.reacoes = reacoesPorPost[p.id] || {};
+    p.minhasReacoes = minhasReacoesPorPost[p.id] || {};
+    p.comentarios = comentariosPorPost[p.id] || [];
+  });
+
+  _postsCache = posts;
   renderComunidade();
 }
 
 // ── REALTIME SUBSCRIPTION ─────────────────────────────────────────────────
+let _reloadDebounce = null;
+function scheduleReload() {
+  clearTimeout(_reloadDebounce);
+  _reloadDebounce = setTimeout(() => loadPosts(), 400);
+}
+
 function initRealtime() {
   if (!_supabase || _chatChannel) return;
   _chatChannel = _supabase
@@ -3403,9 +3497,12 @@ function initRealtime() {
       if (payload.eventType === 'INSERT') {
         const jaExiste = _postsCache.some(p => p.id === payload.new.id);
         if (!jaExiste) {
+          // Inicializa campos agregados (reações/comentários carregam vazios pra post novo)
+          payload.new.reacoes = {};
+          payload.new.minhasReacoes = {};
+          payload.new.comentarios = [];
           _postsCache.unshift(payload.new);
           renderComunidade();
-          // Notifica se não estiver na aba comunidade
           const overlay = document.getElementById('overlay-comunidade');
           if (overlay && !overlay.classList.contains('open')) {
             showToast('Nova mensagem na comunidade! 💬');
@@ -3413,11 +3510,36 @@ function initRealtime() {
         }
       } else if (payload.eventType === 'UPDATE') {
         const idx = _postsCache.findIndex(p => p.id === payload.new.id);
-        if (idx !== -1) { _postsCache[idx] = payload.new; renderComunidade(); }
+        if (idx !== -1) {
+          // Preserva os agregados (reacoes, minhasReacoes, comentarios) ao atualizar
+          const existing = _postsCache[idx];
+          _postsCache[idx] = Object.assign({}, payload.new, {
+            reacoes: existing.reacoes,
+            minhasReacoes: existing.minhasReacoes,
+            comentarios: existing.comentarios
+          });
+          renderComunidade();
+        }
       } else if (payload.eventType === 'DELETE') {
         _postsCache = _postsCache.filter(p => p.id !== payload.old.id);
         renderComunidade();
       }
+    })
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'comunidade_reacoes'
+    }, function() {
+      // Reações de outros usuários: recarrega (debounced)
+      scheduleReload();
+    })
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'comunidade_comentarios'
+    }, function() {
+      // Comentários de outros usuários: recarrega (debounced)
+      scheduleReload();
     })
     .subscribe();
 }
@@ -3505,7 +3627,7 @@ function renderComunidade() {
       const emojiSafe = escapeHtml(emoji);
       const emojiJs   = escapeJsArg(emoji);
       const countSafe = escapeHtml(count);
-      const jáReagiu  = sessionStorage.getItem('reagi_' + p.id + '_' + emoji);
+      const jáReagiu  = p.minhasReacoes && p.minhasReacoes[emoji];
       return `<span onclick="toggleReacao('${idJs}','${emojiJs}')" style="display:inline-flex;align-items:center;gap:3px;background:${jáReagiu ? 'rgba(168,85,247,0.2)' : 'var(--bg3)'};border:1px solid ${jáReagiu ? 'rgba(168,85,247,0.4)' : 'var(--border)'};border-radius:100px;padding:3px 9px;font-size:12px;cursor:pointer;margin:2px;">${emojiSafe} <span style="font-size:10px;font-weight:700;color:var(--muted);">${countSafe}</span></span>`;
     }).join('');
 
