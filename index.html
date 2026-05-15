@@ -3371,12 +3371,15 @@ function initRealtime() {
       table: 'comunidade_posts'
     }, function(payload) {
       if (payload.eventType === 'INSERT') {
-        _postsCache.unshift(payload.new);
-        renderComunidade();
-        // Notifica se não estiver na aba comunidade
-        const overlay = document.getElementById('overlay-comunidade');
-        if (overlay && !overlay.classList.contains('open')) {
-          showToast('Nova mensagem na comunidade! 💬');
+        const jaExiste = _postsCache.some(p => p.id === payload.new.id);
+        if (!jaExiste) {
+          _postsCache.unshift(payload.new);
+          renderComunidade();
+          // Notifica se não estiver na aba comunidade
+          const overlay = document.getElementById('overlay-comunidade');
+          if (overlay && !overlay.classList.contains('open')) {
+            showToast('Nova mensagem na comunidade! 💬');
+          }
         }
       } else if (payload.eventType === 'UPDATE') {
         const idx = _postsCache.findIndex(p => p.id === payload.new.id);
