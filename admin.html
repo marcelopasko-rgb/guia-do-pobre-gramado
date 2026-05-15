@@ -3447,7 +3447,16 @@ async function renderComunidadeInit() {
 <!-- ══════════════════════════════════════════
      LOGIN OVERLAY HTML
      ══════════════════════════════════════════ -->
-<div id="login-overlay">
+<!-- VERIFICANDO SESSÃO -->
+<div id="session-loading" style="
+  position:fixed;inset:0;background:var(--bg);z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+">
+  <div style="font-size:32px;">🧭</div>
+  <div style="width:32px;height:32px;border:3px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;"></div>
+</div>
+
+<div id="login-overlay" class="hidden">
   <div class="login-sheet" id="login-sheet">
     <div class="login-handle"></div>
 
@@ -3525,21 +3534,27 @@ try {
 // ── ESTADO ────────────────────────────────────────────────────────────────
 let currentUser = null;
 
+function hideSessionLoading() {
+  const el = document.getElementById('session-loading');
+  if (el) el.style.display = 'none';
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────
 (async function initAuth() {
-  if (!_supabase) { showLoginOverlay(); return; }
+  if (!_supabase) { hideSessionLoading(); showLoginOverlay(); return; }
   try {
     var hash = window.location.hash;
 
     // Tem token na URL — magic link acabou de ser clicado
     if (hash && hash.includes('access_token')) {
-      hideLoginOverlay();
       _supabase.auth.onAuthStateChange(function(event, session) {
         if (session && session.user) {
+          hideSessionLoading();
           onLoginSuccess(session.user);
           history.replaceState(null, '', window.location.pathname);
         } else if (event === 'SIGNED_OUT') {
           currentUser = null;
+          hideSessionLoading();
           showLoginOverlay();
         }
       });
@@ -3550,8 +3565,8 @@ let currentUser = null;
     // Sem token na URL — tenta recuperar sessão salva no localStorage
     const { data: { session } } = await _supabase.auth.getSession();
     if (session && session.user) {
+      hideSessionLoading();
       onLoginSuccess(session.user);
-      // Mantém listener para renovação automática do token
       _supabase.auth.onAuthStateChange(function(event, session) {
         if (event === 'SIGNED_OUT') { currentUser = null; showLoginOverlay(); }
         else if (event === 'TOKEN_REFRESHED' && session?.user) { currentUser = session.user; }
@@ -3559,7 +3574,8 @@ let currentUser = null;
       return;
     }
 
-    // Nenhuma sessão encontrada — mostra login
+    // Nenhuma sessão — mostra login
+    hideSessionLoading();
     _supabase.auth.onAuthStateChange(function(event, session) {
       if (session && session.user) {
         onLoginSuccess(session.user);
@@ -3572,6 +3588,7 @@ let currentUser = null;
     showLoginOverlay();
   } catch(e) {
     console.error(e);
+    hideSessionLoading();
     showLoginOverlay();
   }
 })()
