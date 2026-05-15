@@ -3230,9 +3230,15 @@ async function uploadFotoStorage(dataUrl) {
 // ── PUBLISH POST ──────────────────────────────────────────────────────────
 async function publishPost() {
   if (!currentUser) { showToast('Faça login para publicar! 🔒'); return; }
-  const texto = document.getElementById('post-text').value.trim();
-  const tag   = document.getElementById('post-tag').value;
+  let texto = document.getElementById('post-text').value.trim();
+  let tag   = document.getElementById('post-tag').value;
   if (!texto && !selectedPhoto) { showToast('Escreva algo para publicar! ✍️'); return; }
+
+  // Validação defensiva
+  if (texto.length > 2000) { showToast('Texto muito longo (máx 2000 caracteres).'); return; }
+  // Garante que a tag seja uma das permitidas (não confia no DOM)
+  const tagsValidas = ['dica','foto','restaurante','hotel','atração','economia'];
+  if (!tagsValidas.includes(tag)) tag = 'dica';
 
   const btn = document.querySelector('[onclick="publishPost()"]');
   if (btn) { btn.disabled = true; btn.textContent = '...'; }
@@ -3240,7 +3246,7 @@ async function publishPost() {
   let fotoUrl = null;
   if (selectedPhoto) { fotoUrl = await uploadFotoStorage(selectedPhoto); }
 
-  const nome = getDisplayName();
+  const nome = (getDisplayName() || 'Membro').slice(0, 80); // limite de 80 chars no nome
   const post = {
     autor:    nome,
     avatar:   getInitials(nome),
@@ -3338,11 +3344,13 @@ async function submitComment(postId) {
   if (!currentUser) { showToast('Faça login para comentar! 🔒'); return; }
   const inp = document.getElementById('comment-input-' + postId);
   if (!inp || !inp.value.trim()) return;
+  const texto = inp.value.trim();
+  if (texto.length > 500) { showToast('Comentário muito longo (máx 500 caracteres).'); return; }
   const post = _postsCache.find(p => p.id === postId);
   if (!post) return;
   if (!post.comentarios) post.comentarios = [];
-  const nome = getDisplayName();
-  const comentario = { autor: nome, cor: getAvatarColor(nome), texto: inp.value.trim() };
+  const nome = (getDisplayName() || 'Membro').slice(0, 80);
+  const comentario = { autor: nome, cor: getAvatarColor(nome), texto: texto };
   post.comentarios.push(comentario);
   if (_supabase) {
     const { error } = await _supabase.from('comunidade_posts').update({ comentarios: post.comentarios }).eq('id', postId);
@@ -3415,6 +3423,52 @@ function initRealtime() {
 }
 
 // ── RENDER ────────────────────────────────────────────────────────────────
+
+// Escapa caracteres HTML perigosos — uso obrigatório para qualquer conteúdo
+// vindo de usuário antes de inserir via innerHTML
+function escapeHtml(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// Escapa para uso dentro de string entre aspas simples em atributo onclick
+// (HTML escape + escape das aspas simples e barras invertidas)
+function escapeJsArg(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// Permite só cores CSS seguras (hex, rgb, rgba, hsl, hsla, palavras-chave básicas)
+function safeColor(s, fallback) {
+  fallback = fallback || '#555';
+  if (typeof s !== 'string') return fallback;
+  if (/^#[0-9a-fA-F]{3,8}$/.test(s)) return s;
+  if (/^rgba?\([\d.,\s%]+\)$/.test(s)) return s;
+  if (/^hsla?\([\d.,\s%]+\)$/.test(s)) return s;
+  if (/^[a-zA-Z]{3,20}$/.test(s)) return s; // ex: "red", "purple", "transparent"
+  return fallback;
+}
+
+// Valida URL de foto — só aceita http(s) externos (sem javascript: ou data: text/html)
+function safePhotoUrl(s) {
+  if (typeof s !== 'string') return null;
+  try {
+    const u = new URL(s);
+    if (u.protocol === 'https:' || u.protocol === 'http:') return s;
+  } catch(e) {}
+  return null;
+}
+
 function renderComunidade() {
   const feed = document.getElementById('comunidade-feed');
   if (!feed) return;
@@ -3437,19 +3491,39 @@ function renderComunidade() {
   }
 
   feed.innerHTML = _postsCache.map(p => {
-    const fotoSrc = p.foto_url || p.foto || null;
+    // Campos sanitizados
+    const idHtml      = escapeHtml(p.id);
+    const idJs        = escapeJsArg(p.id);
+    const autor       = escapeHtml(p.autor || 'Membro');
+    const avatarChar  = escapeHtml((p.avatar || 'V').slice(0, 3));
+    const corAvatar   = safeColor(p.cor, '#a855f7');
+    const texto       = p.texto ? escapeHtml(p.texto) : '';
+    const fotoSrc     = safePhotoUrl(p.foto_url || p.foto);
+    const tagSafe     = escapeHtml(tagLabels[p.tag] || p.tag || '💡 Dica');
+
     const reacoesHTML = Object.entries(p.reacoes || {}).filter(([,v]) => v > 0).map(([emoji, count]) => {
-      const jáReagiu = sessionStorage.getItem('reagi_' + p.id + '_' + emoji);
-      return `<span onclick="toggleReacao('${p.id}','${emoji}')" style="display:inline-flex;align-items:center;gap:3px;background:${jáReagiu ? 'rgba(168,85,247,0.2)' : 'var(--bg3)'};border:1px solid ${jáReagiu ? 'rgba(168,85,247,0.4)' : 'var(--border)'};border-radius:100px;padding:3px 9px;font-size:12px;cursor:pointer;margin:2px;">${emoji} <span style="font-size:10px;font-weight:700;color:var(--muted);">${count}</span></span>`;
+      const emojiSafe = escapeHtml(emoji);
+      const emojiJs   = escapeJsArg(emoji);
+      const countSafe = escapeHtml(count);
+      const jáReagiu  = sessionStorage.getItem('reagi_' + p.id + '_' + emoji);
+      return `<span onclick="toggleReacao('${idJs}','${emojiJs}')" style="display:inline-flex;align-items:center;gap:3px;background:${jáReagiu ? 'rgba(168,85,247,0.2)' : 'var(--bg3)'};border:1px solid ${jáReagiu ? 'rgba(168,85,247,0.4)' : 'var(--border)'};border-radius:100px;padding:3px 9px;font-size:12px;cursor:pointer;margin:2px;">${emojiSafe} <span style="font-size:10px;font-weight:700;color:var(--muted);">${countSafe}</span></span>`;
     }).join('');
-    const comentariosHTML = (p.comentarios || []).map(c => `
+
+    const comentariosHTML = (p.comentarios || []).map(c => {
+      const cAutor = escapeHtml(c.autor || 'V');
+      const cCor   = safeColor(c.cor, '#555');
+      const cTexto = escapeHtml(c.texto || '');
+      const cInicial = escapeHtml((c.autor || 'V').charAt(0));
+      return `
       <div style="display:flex;gap:8px;padding:8px 0;border-top:1px solid var(--border);">
-        <div style="width:26px;height:26px;border-radius:50%;background:${c.cor || '#555'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0;">${(c.autor||'V').charAt(0)}</div>
+        <div style="width:26px;height:26px;border-radius:50%;background:${cCor};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0;">${cInicial}</div>
         <div>
-          <span style="font-size:10px;font-weight:700;color:var(--text);">${c.autor}</span>
-          <p style="font-size:11px;color:#b0b0c0;margin-top:2px;line-height:1.5;">${c.texto}</p>
+          <span style="font-size:10px;font-weight:700;color:var(--text);">${cAutor}</span>
+          <p style="font-size:11px;color:#b0b0c0;margin-top:2px;line-height:1.5;">${cTexto}</p>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
+
     const tempoStr = p.tempo ? (() => {
       const diff = Math.floor((Date.now() - new Date(p.tempo).getTime()) / 1000);
       if (diff < 60) return 'agora mesmo';
@@ -3457,25 +3531,26 @@ function renderComunidade() {
       if (diff < 86400) return Math.floor(diff/3600) + 'h atrás';
       return Math.floor(diff/86400) + 'd atrás';
     })() : 'agora mesmo';
+
     return `
-    <div id="post-${p.id}" style="border-bottom:1px solid var(--border);padding:14px 16px;">
+    <div id="post-${idHtml}" style="border-bottom:1px solid var(--border);padding:14px 16px;">
       <div style="display:flex;gap:10px;align-items:flex-start;">
-        <div style="width:38px;height:38px;border-radius:50%;background:${p.cor || '#a855f7'};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0;">${p.avatar || 'V'}</div>
+        <div style="width:38px;height:38px;border-radius:50%;background:${corAvatar};display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0;">${avatarChar}</div>
         <div style="flex:1;min-width:0;">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <span style="font-size:12px;font-weight:700;color:var(--text);">${p.autor || 'Membro'}</span>
-            <span style="background:rgba(168,85,247,0.1);color:var(--purple);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;border:1px solid rgba(168,85,247,0.2);">${tagLabels[p.tag] || p.tag || '💡 Dica'}</span>
+            <span style="font-size:12px;font-weight:700;color:var(--text);">${autor}</span>
+            <span style="background:rgba(168,85,247,0.1);color:var(--purple);font-size:9px;font-weight:700;padding:2px 8px;border-radius:100px;border:1px solid rgba(168,85,247,0.2);">${tagSafe}</span>
             <span style="font-size:10px;color:var(--muted);margin-left:auto;">${tempoStr}</span>
           </div>
-          ${p.texto ? `<p style="font-size:12px;color:#c8c8d8;margin-top:6px;line-height:1.65;">${p.texto}</p>` : ''}
-          ${fotoSrc ? `<img src="${fotoSrc}" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-top:8px;border:1px solid var(--border);" loading="lazy" />` : ''}
+          ${texto ? `<p style="font-size:12px;color:#c8c8d8;margin-top:6px;line-height:1.65;white-space:pre-wrap;word-break:break-word;">${texto}</p>` : ''}
+          ${fotoSrc ? `<img src="${escapeHtml(fotoSrc)}" alt="" style="width:100%;max-height:220px;object-fit:cover;border-radius:10px;margin-top:8px;border:1px solid var(--border);" loading="lazy" />` : ''}
           ${reacoesHTML ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:2px;">${reacoesHTML}</div>` : ''}
           <div style="display:flex;gap:12px;margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
-            <button onclick="showReacaoPicker('${p.id}')" style="display:flex;align-items:center;gap:5px;background:none;border:none;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;padding:0;font-family:'Space Grotesk',sans-serif;">
+            <button onclick="showReacaoPicker('${idJs}')" style="display:flex;align-items:center;gap:5px;background:none;border:none;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;padding:0;font-family:'Space Grotesk',sans-serif;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><circle cx="12" cy="12" r="10"/><path d="M8 13s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
               Reagir
             </button>
-            <button onclick="showCommentBox('${p.id}')" style="display:flex;align-items:center;gap:5px;background:none;border:none;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;padding:0;font-family:'Space Grotesk',sans-serif;">
+            <button onclick="showCommentBox('${idJs}')" style="display:flex;align-items:center;gap:5px;background:none;border:none;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;padding:0;font-family:'Space Grotesk',sans-serif;">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
               ${p.comentarios && p.comentarios.length ? p.comentarios.length + ' comentário' + (p.comentarios.length > 1 ? 's' : '') : 'Comentar'}
             </button>
