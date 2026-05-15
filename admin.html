@@ -3555,53 +3555,100 @@ function hideSessionLoading() {
 
 // ── INIT ──────────────────────────────────────────────────────────────────
 (async function initAuth() {
-  if (!_supabase) { hideSessionLoading(); showLoginOverlay(); return; }
-  try {
-    var hash = window.location.hash;
+  console.log('[AUTH] initAuth iniciado. PWA standalone:', window.matchMedia('(display-mode: standalone)').matches);
 
-    // Tem token na URL — magic link acabou de ser clicado
-    if (hash && hash.includes('access_token')) {
-      _supabase.auth.onAuthStateChange(function(event, session) {
-        if (session && session.user) {
-          hideSessionLoading();
-          onLoginSuccess(session.user);
-          history.replaceState(null, '', window.location.pathname);
-        } else if (event === 'SIGNED_OUT') {
-          currentUser = null;
-          hideSessionLoading();
-          showLoginOverlay();
-        }
-      });
-      await _supabase.auth.getSession();
-      return;
-    }
-
-    // Sem token na URL — tenta recuperar sessão salva no localStorage
-    const { data: { session } } = await _supabase.auth.getSession();
-    if (session && session.user) {
-      hideSessionLoading();
-      onLoginSuccess(session.user);
-      _supabase.auth.onAuthStateChange(function(event, session) {
-        if (event === 'SIGNED_OUT') { currentUser = null; showLoginOverlay(); }
-        else if (event === 'TOKEN_REFRESHED' && session?.user) { currentUser = session.user; }
-      });
-      return;
-    }
-
-    // Nenhuma sessão — mostra login
+  if (!_supabase) {
+    console.error('[AUTH] Supabase SDK não carregou.');
     hideSessionLoading();
-    _supabase.auth.onAuthStateChange(function(event, session) {
-      if (session && session.user) {
-        onLoginSuccess(session.user);
-        history.replaceState(null, '', window.location.pathname);
-      } else if (event === 'SIGNED_OUT') {
-        currentUser = null;
-        showLoginOverlay();
-      }
-    });
     showLoginOverlay();
+    return;
+  }
+
+  // Diagnóstico: checa o que tem no localStorage com a chave do Supabase
+  try {
+    var allKeys = Object.keys(localStorage);
+    var authKeys = allKeys.filter(function(k) { return k.indexOf('supabase') !== -1 || k.indexOf('sb-') === 0; });
+    console.log('[AUTH] Chaves de auth no localStorage:', authKeys);
+    authKeys.forEach(function(k) {
+      var v = localStorage.getItem(k);
+      console.log('[AUTH] ', k, '=>', v ? v.slice(0, 80) + '...' : 'vazio');
+    });
+  } catch(e) { console.warn('[AUTH] Não conseguiu ler localStorage:', e); }
+
+  // Listener ÚNICO registrado antes de qualquer getSession()
+  _supabase.auth.onAuthStateChange(function(event, session) {
+    console.log('[AUTH] evento:', event, 'tem sessão:', !!session);
+    if (session && session.user) {
+      // Backup manual da sessão (redundância para casos onde o storage padrão do Supabase falha)
+      try {
+        localStorage.setItem('gpg_session_backup', JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at: session.expires_at,
+          user: session.user
+        }));
+      } catch(e) {}
+
+      hideSessionLoading();
+      if (!currentUser || currentUser.id !== session.user.id) {
+        onLoginSuccess(session.user);
+      }
+      if (window.location.hash && window.location.hash.indexOf('access_token') !== -1) {
+        history.replaceState(null, '', window.location.pathname);
+      }
+    } else if (event === 'SIGNED_OUT') {
+      try { localStorage.removeItem('gpg_session_backup'); } catch(e) {}
+      currentUser = null;
+      hideSessionLoading();
+      showLoginOverlay();
+    } else if (event === 'TOKEN_REFRESHED' && session && session.user) {
+      currentUser = session.user;
+      try {
+        localStorage.setItem('gpg_session_backup', JSON.stringify({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          expires_at: session.expires_at,
+          user: session.user
+        }));
+      } catch(e) {}
+      console.log('[AUTH] Token renovado.');
+    }
+  });
+
+  try {
+    var result = await _supabase.auth.getSession();
+    console.log('[AUTH] getSession resultado:', result.data && result.data.session ? 'TEM SESSÃO' : 'sem sessão', result.error || '');
+
+    // Se Supabase não encontrou sessão, tenta restaurar do backup manual
+    if (!result.data || !result.data.session) {
+      var backup = null;
+      try { backup = JSON.parse(localStorage.getItem('gpg_session_backup') || 'null'); } catch(e) {}
+
+      if (backup && backup.refresh_token) {
+        console.log('[AUTH] Tentando restaurar do backup manual...');
+        try {
+          var restoreRes = await _supabase.auth.setSession({
+            access_token: backup.access_token,
+            refresh_token: backup.refresh_token
+          });
+          if (restoreRes.data && restoreRes.data.session) {
+            console.log('[AUTH] ✅ Sessão restaurada do backup!');
+            return; // onAuthStateChange vai disparar
+          } else {
+            console.warn('[AUTH] Backup expirado ou inválido:', restoreRes.error);
+            try { localStorage.removeItem('gpg_session_backup'); } catch(e) {}
+          }
+        } catch(e) {
+          console.warn('[AUTH] Falha ao restaurar backup:', e);
+        }
+      }
+
+      hideSessionLoading();
+      showLoginOverlay();
+    }
+    // Se tem sessão, o onAuthStateChange acima já vai disparar INITIAL_SESSION e chamar onLoginSuccess
   } catch(e) {
-    console.error(e);
+    console.error('[AUTH] erro no getSession:', e);
     hideSessionLoading();
     showLoginOverlay();
   }
