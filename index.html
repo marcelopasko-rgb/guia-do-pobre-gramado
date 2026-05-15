@@ -3477,7 +3477,7 @@ async function renderComunidadeInit() {
       <!-- ETAPA 1: Email -->
       <div id="step-email">
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
-          Digite o e-mail usado na sua compra. Vamos enviar um código de 6 dígitos para sua caixa de entrada.
+          Digite o e-mail usado na sua compra. Vamos enviar um link de acesso para a sua caixa de entrada — basta clicar e você entra automaticamente.
         </p>
 
         <div class="login-field">
@@ -3486,7 +3486,7 @@ async function renderComunidadeInit() {
         </div>
 
         <button class="login-cta" id="login-cta-btn" onclick="handleSendOtp()">
-          <span id="cta-text">Enviar código</span>
+          <span id="cta-text">Enviar link de acesso</span>
         </button>
       </div>
 
@@ -3638,7 +3638,7 @@ function clearMsg() {
 // ── LOADING STATE ─────────────────────────────────────────────────────────
 function setLoading(on, btnId, defaultText) {
   btnId = btnId || 'login-cta-btn';
-  defaultText = defaultText || 'Enviar código';
+  defaultText = defaultText || 'Enviar link de acesso';
   var btn = document.getElementById(btnId);
   if (!btn) return;
   if (on) {
@@ -3659,10 +3659,10 @@ async function handleSendOtp() {
   if (!email) { showMsg('Digite seu e-mail.'); return; }
   if (!email.includes('@') || !email.includes('.')) { showMsg('E-mail inválido.'); return; }
 
-  setLoading(true, 'login-cta-btn', 'Enviar código');
+  setLoading(true, 'login-cta-btn', 'Enviar link de acesso');
 
   if (!_supabase) {
-    setLoading(false, 'login-cta-btn', 'Enviar código');
+    setLoading(false, 'login-cta-btn', 'Enviar link de acesso');
     showMsg('Erro de conexão. Tente novamente.');
     return;
   }
@@ -3676,7 +3676,7 @@ async function handleSendOtp() {
     }
   });
 
-  setLoading(false, 'login-cta-btn', 'Enviar código');
+  setLoading(false, 'login-cta-btn', 'Enviar link de acesso');
 
   if (res.error) {
     if (res.error.message && res.error.message.toLowerCase().includes('signups not allowed')) {
