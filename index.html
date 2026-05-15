@@ -2060,6 +2060,8 @@ function buildRoteiro(dados){
       </div>
     </div>
   `;
+  // Recalcula progresso com os novos itens renderizados
+  applyRoteiroChecked();
 }
 
 /* ═══ PARQUES ═══ */
@@ -2891,7 +2893,14 @@ function countRoteiroTotal() {
 function updateRoteiroProgress() {
   const checked = getRoteiroChecked();
   const total = countRoteiroTotal();
-  const done = checked.length;
+
+  // Só conta IDs que estão realmente renderizados no DOM atual
+  const renderedIds = new Set(
+    Array.from(document.querySelectorAll('#roteiro-content .attraction-item[data-id], #roteiro-body .attraction-item[data-id]'))
+      .map(el => el.dataset.id)
+  );
+  const done = checked.filter(id => renderedIds.has(id)).length;
+
   const pct = total ? Math.round((done / total) * 100) : 0;
 
   const fill  = document.getElementById('roteiro-fill');
