@@ -3474,27 +3474,42 @@ async function renderComunidadeInit() {
       <!-- Mensagem de erro/sucesso -->
       <div class="login-msg" id="login-msg"></div>
 
-      <!-- Instrução -->
-      <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
-        Digite o e-mail usado na sua compra. Vamos enviar um link de acesso direto para a sua caixa de entrada.
-      </p>
+      <!-- ETAPA 1: Email -->
+      <div id="step-email">
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
+          Digite o e-mail usado na sua compra. Vamos enviar um código de 6 dígitos para sua caixa de entrada.
+        </p>
 
-      <!-- Email -->
-      <div class="login-field">
-        <label>E-mail</label>
-        <input type="email" id="input-email" placeholder="voce@email.com" autocomplete="email" />
+        <div class="login-field">
+          <label>E-mail</label>
+          <input type="email" id="input-email" placeholder="voce@email.com" autocomplete="email" inputmode="email" />
+        </div>
+
+        <button class="login-cta" id="login-cta-btn" onclick="handleSendOtp()">
+          <span id="cta-text">Enviar código</span>
+        </button>
       </div>
 
-      <!-- CTA principal -->
-      <button class="login-cta" id="login-cta-btn" onclick="handleMagicLink()">
-        <span id="cta-text">Enviar link de acesso</span>
-      </button>
+      <!-- ETAPA 2: Código OTP -->
+      <div id="step-otp" style="display:none;">
+        <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:14px;margin-bottom:16px;text-align:center;">
+          <div style="font-size:24px;margin-bottom:6px;">📬</div>
+          <div style="font-size:12px;font-weight:700;color:#4ade80;margin-bottom:4px;">Código enviado!</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Olhe sua caixa de entrada (e o spam) — enviamos para <strong id="otp-email-display" style="color:var(--text);"></strong></div>
+        </div>
 
-      <!-- Sucesso -->
-      <div id="login-success-box" style="display:none;margin-top:16px;background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:16px;text-align:center;">
-        <div style="font-size:28px;margin-bottom:8px;">📬</div>
-        <div style="font-size:13px;font-weight:700;color:#4ade80;margin-bottom:4px;">Link enviado!</div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.6;">Verifique sua caixa de entrada e clique no botão de acesso. Não esqueça de checar o spam.</div>
+        <div class="login-field">
+          <label>Código de 6 dígitos</label>
+          <input type="text" id="input-otp" placeholder="000000" autocomplete="one-time-code" inputmode="numeric" maxlength="6" pattern="[0-9]*" style="letter-spacing:8px;text-align:center;font-size:20px;font-weight:700;" />
+        </div>
+
+        <button class="login-cta" id="verify-cta-btn" onclick="handleVerifyOtp()">
+          <span id="verify-cta-text">Entrar</span>
+        </button>
+
+        <button onclick="backToEmail()" style="background:none;border:none;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;margin-top:12px;display:block;width:100%;text-align:center;text-decoration:underline;text-underline-offset:2px;">
+          Usar outro e-mail
+        </button>
       </div>
     </div>
 
@@ -3621,58 +3636,131 @@ function clearMsg() {
 }
 
 // ── LOADING STATE ─────────────────────────────────────────────────────────
-function setLoading(on) {
-  var btn = document.getElementById('login-cta-btn');
+function setLoading(on, btnId, defaultText) {
+  btnId = btnId || 'login-cta-btn';
+  defaultText = defaultText || 'Enviar código';
+  var btn = document.getElementById(btnId);
   if (!btn) return;
   if (on) {
     btn.disabled = true;
     btn.innerHTML = '<div class="btn-spinner"></div>';
   } else {
     btn.disabled = false;
-    btn.innerHTML = '<span id="cta-text">Enviar link de acesso</span>';
+    btn.innerHTML = '<span>' + defaultText + '</span>';
   }
 }
 
-// ── MAGIC LINK HANDLER ────────────────────────────────────────────────────
-async function handleMagicLink() {
+// ── ENVIAR CÓDIGO OTP ─────────────────────────────────────────────────────
+async function handleSendOtp() {
   clearMsg();
   var emailEl = document.getElementById('input-email');
-  var email   = emailEl ? emailEl.value.trim() : '';
+  var email   = emailEl ? emailEl.value.trim().toLowerCase() : '';
 
   if (!email) { showMsg('Digite seu e-mail.'); return; }
-  if (!email.includes('@')) { showMsg('E-mail inválido.'); return; }
+  if (!email.includes('@') || !email.includes('.')) { showMsg('E-mail inválido.'); return; }
 
-  setLoading(true);
+  setLoading(true, 'login-cta-btn', 'Enviar código');
 
-  if (_supabase) {
-    var res = await _supabase.auth.signInWithOtp({
-      email: email,
-      options: {
-        shouldCreateUser: false,
-        emailRedirectTo: 'https://guia-do-pobre-gramado.vercel.app'
-      }
-    });
-    setLoading(false);
-    if (res.error) {
-      if (res.error.message.includes('Signups not allowed')) {
-        showMsg('E-mail não encontrado. Verifique se usou o mesmo e-mail da compra.');
-      } else {
-        showMsg(res.error.message);
-      }
-      return;
-    }
-  } else {
-    // Fallback sem Supabase (só para dev)
-    await new Promise(function(r){ setTimeout(r, 800); });
-    setLoading(false);
+  if (!_supabase) {
+    setLoading(false, 'login-cta-btn', 'Enviar código');
+    showMsg('Erro de conexão. Tente novamente.');
+    return;
   }
 
-  // Mostra caixa de sucesso e esconde o form
-  document.getElementById('login-success-box').style.display = 'block';
-  document.getElementById('login-cta-btn').style.display = 'none';
-  if (emailEl) emailEl.closest('.login-field').style.display = 'none';
-  document.querySelector('.login-body p').style.display = 'none';
+  // signInWithOtp sem emailRedirectTo: o Supabase envia APENAS o código de 6 dígitos
+  // (sem emailRedirectTo o link no email não fica clicável, forçando o usuário a usar o código)
+  var res = await _supabase.auth.signInWithOtp({
+    email: email,
+    options: {
+      shouldCreateUser: false
+    }
+  });
+
+  setLoading(false, 'login-cta-btn', 'Enviar código');
+
+  if (res.error) {
+    if (res.error.message && res.error.message.toLowerCase().includes('signups not allowed')) {
+      showMsg('E-mail não encontrado. Verifique se usou o mesmo e-mail da compra.');
+    } else if (res.error.message && res.error.message.toLowerCase().includes('rate limit')) {
+      showMsg('Muitas tentativas. Espere 60 segundos e tente de novo.');
+    } else {
+      showMsg(res.error.message || 'Erro ao enviar código.');
+    }
+    return;
+  }
+
+  // Mostra a etapa do código
+  document.getElementById('step-email').style.display = 'none';
+  document.getElementById('step-otp').style.display = 'block';
+  document.getElementById('otp-email-display').textContent = email;
+  // Guarda o email para usar no verify
+  window._otpEmail = email;
+  // Foca no input do código
+  setTimeout(function() {
+    var otpInput = document.getElementById('input-otp');
+    if (otpInput) otpInput.focus();
+  }, 200);
 }
+
+// ── VERIFICAR CÓDIGO OTP ──────────────────────────────────────────────────
+async function handleVerifyOtp() {
+  clearMsg();
+  var otpEl = document.getElementById('input-otp');
+  var token = otpEl ? otpEl.value.trim() : '';
+  var email = window._otpEmail || '';
+
+  if (!token) { showMsg('Digite o código de 6 dígitos.'); return; }
+  if (token.length !== 6 || !/^\d{6}$/.test(token)) { showMsg('Código deve ter 6 dígitos.'); return; }
+  if (!email) { showMsg('Sessão expirou. Recomece o login.'); backToEmail(); return; }
+
+  setLoading(true, 'verify-cta-btn', 'Entrar');
+
+  var res = await _supabase.auth.verifyOtp({
+    email: email,
+    token: token,
+    type: 'email'
+  });
+
+  setLoading(false, 'verify-cta-btn', 'Entrar');
+
+  if (res.error) {
+    if (res.error.message && res.error.message.toLowerCase().includes('expired')) {
+      showMsg('Código expirado. Peça um novo código.');
+    } else if (res.error.message && res.error.message.toLowerCase().includes('invalid')) {
+      showMsg('Código inválido. Verifique e tente de novo.');
+    } else {
+      showMsg(res.error.message || 'Erro ao verificar código.');
+    }
+    return;
+  }
+
+  // Sucesso! O onAuthStateChange vai disparar e chamar onLoginSuccess.
+  // A sessão será salva no localStorage do contexto atual (PWA ou navegador).
+}
+
+// ── VOLTAR PARA TELA DE EMAIL ─────────────────────────────────────────────
+function backToEmail() {
+  clearMsg();
+  document.getElementById('step-otp').style.display = 'none';
+  document.getElementById('step-email').style.display = 'block';
+  var otpInput = document.getElementById('input-otp');
+  if (otpInput) otpInput.value = '';
+  window._otpEmail = null;
+}
+
+// Auto-submit quando o usuário cola/digita o código completo
+document.addEventListener('DOMContentLoaded', function() {
+  var otpInput = document.getElementById('input-otp');
+  if (otpInput) {
+    otpInput.addEventListener('input', function(e) {
+      // Mantém apenas dígitos
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6);
+      if (e.target.value.length === 6) {
+        handleVerifyOtp();
+      }
+    });
+  }
+});
 
 // ── ON LOGIN SUCCESS ──────────────────────────────────────────────────────
 function onLoginSuccess(user) {
