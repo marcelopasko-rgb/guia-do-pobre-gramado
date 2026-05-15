@@ -3541,33 +3541,50 @@ function hideSessionLoading() {
 // ── INIT ──────────────────────────────────────────────────────────────────
 (async function initAuth() {
   if (!_supabase) { hideSessionLoading(); showLoginOverlay(); return; }
+  try {
+    var hash = window.location.hash;
 
-  // Listener ÚNICO registrado antes de qualquer getSession()
-  // Isso garante que o evento INITIAL_SESSION (sessao salva) seja capturado
-  _supabase.auth.onAuthStateChange(function(event, session) {
+    // Tem token na URL — magic link acabou de ser clicado
+    if (hash && hash.includes('access_token')) {
+      _supabase.auth.onAuthStateChange(function(event, session) {
+        if (session && session.user) {
+          hideSessionLoading();
+          onLoginSuccess(session.user);
+          history.replaceState(null, '', window.location.pathname);
+        } else if (event === 'SIGNED_OUT') {
+          currentUser = null;
+          hideSessionLoading();
+          showLoginOverlay();
+        }
+      });
+      await _supabase.auth.getSession();
+      return;
+    }
+
+    // Sem token na URL — tenta recuperar sessão salva no localStorage
+    const { data: { session } } = await _supabase.auth.getSession();
     if (session && session.user) {
       hideSessionLoading();
-      if (!currentUser || currentUser.id !== session.user.id) {
-        onLoginSuccess(session.user);
-      }
-      if (window.location.hash && window.location.hash.includes('access_token')) {
-        history.replaceState(null, '', window.location.pathname);
-      }
-    } else if (event === 'SIGNED_OUT') {
-      currentUser = null;
-      hideSessionLoading();
-      showLoginOverlay();
-    } else if (event === 'TOKEN_REFRESHED' && session && session.user) {
-      currentUser = session.user;
+      onLoginSuccess(session.user);
+      _supabase.auth.onAuthStateChange(function(event, session) {
+        if (event === 'SIGNED_OUT') { currentUser = null; showLoginOverlay(); }
+        else if (event === 'TOKEN_REFRESHED' && session?.user) { currentUser = session.user; }
+      });
+      return;
     }
-  });
 
-  try {
-    var result = await _supabase.auth.getSession();
-    if (!result.data || !result.data.session) {
-      hideSessionLoading();
-      showLoginOverlay();
-    }
+    // Nenhuma sessão — mostra login
+    hideSessionLoading();
+    _supabase.auth.onAuthStateChange(function(event, session) {
+      if (session && session.user) {
+        onLoginSuccess(session.user);
+        history.replaceState(null, '', window.location.pathname);
+      } else if (event === 'SIGNED_OUT') {
+        currentUser = null;
+        showLoginOverlay();
+      }
+    });
+    showLoginOverlay();
   } catch(e) {
     console.error(e);
     hideSessionLoading();
@@ -3747,11 +3764,7 @@ async function handleLogout() {
   }
   showLoginOverlay();
 }
-</script>
-    });
-  `;
-  const blob = new Blob([swCode], {type: 'application/javascript'});
-  const swUrl = URL.createObjectURL(blob);
+
 /* ═══ PWA INSTALL PROMPT ═══ */
 let _pwaDeferred = null;
 let _pwaShownThisSession = false;
@@ -3829,6 +3842,7 @@ function pwaTrigger() {
   setTimeout(pwaShowSheet, 800); // pequeno delay para não interromper a ação
 }
 
+</script>
 
   <!-- PWA INSTALL SHEET -->
   <div id="pwa-sheet" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9998;padding:0 0 env(safe-area-inset-bottom,0);">
