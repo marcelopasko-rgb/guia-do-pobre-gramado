@@ -3457,6 +3457,16 @@ async function renderComunidadeInit() {
 </div>
 
 <div id="login-overlay" class="hidden">
+  <!-- BOTÃO DE DEBUG (toque pra ver estado do storage) -->
+  <button id="debug-btn" onclick="showDebugInfo()" style="position:fixed;top:12px;right:12px;z-index:10001;background:rgba(255,255,255,0.1);color:#fff;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:6px 10px;font-size:11px;font-family:monospace;cursor:pointer;">🐞 debug</button>
+
+  <!-- MODAL DE DEBUG -->
+  <div id="debug-modal" style="display:none;position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.85);padding:16px;overflow:auto;">
+    <button onclick="document.getElementById('debug-modal').style.display='none'" style="position:absolute;top:12px;right:12px;background:#fff;color:#000;border:none;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;">Fechar</button>
+    <pre id="debug-content" style="color:#a0ffa0;font-size:11px;font-family:monospace;white-space:pre-wrap;word-break:break-all;margin-top:50px;background:#000;padding:14px;border-radius:8px;line-height:1.5;"></pre>
+    <button onclick="navigator.clipboard.writeText(document.getElementById('debug-content').textContent).then(function(){alert('Copiado!')})" style="display:block;margin:12px auto 0;background:#22c55e;color:#000;border:none;border-radius:8px;padding:10px 24px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;">📋 Copiar tudo</button>
+  </div>
+
   <div class="login-sheet" id="login-sheet">
     <div class="login-handle"></div>
 
@@ -3553,12 +3563,83 @@ function hideSessionLoading() {
   if (el) el.style.display = 'none';
 }
 
+// ── DEBUG INFO (visível ao toque) ─────────────────────────────────────────
+window._authLog = [];
+function logAuth(msg) {
+  var line = '[' + new Date().toISOString().slice(11,19) + '] ' + msg;
+  window._authLog.push(line);
+  console.log(line);
+  if (window._authLog.length > 50) window._authLog.shift();
+}
+
+async function showDebugInfo() {
+  var lines = [];
+  lines.push('=== INFO DO NAVEGADOR ===');
+  lines.push('UA: ' + navigator.userAgent);
+  lines.push('URL: ' + window.location.href);
+  lines.push('Standalone PWA: ' + window.matchMedia('(display-mode: standalone)').matches);
+  lines.push('Cookies habilitados: ' + navigator.cookieEnabled);
+  lines.push('Online: ' + navigator.onLine);
+  lines.push('');
+  lines.push('=== TESTE DE PERSISTÊNCIA ===');
+  try {
+    var testKey = '__test_persist_' + Date.now();
+    localStorage.setItem(testKey, 'ok');
+    var readBack = localStorage.getItem(testKey);
+    localStorage.removeItem(testKey);
+    lines.push('localStorage WRITE/READ: ' + (readBack === 'ok' ? '✅ OK' : '❌ FALHOU'));
+  } catch(e) {
+    lines.push('localStorage ERRO: ' + e.message + ' ← ISSO É O PROBLEMA');
+  }
+  lines.push('');
+  lines.push('=== CHAVES NO localStorage ===');
+  try {
+    var keys = Object.keys(localStorage);
+    if (keys.length === 0) {
+      lines.push('(vazio - storage não persiste!)');
+    } else {
+      keys.forEach(function(k) {
+        var v = localStorage.getItem(k);
+        lines.push('• ' + k);
+        if (v) lines.push('  → ' + v.slice(0, 120) + (v.length > 120 ? '...' : ''));
+      });
+    }
+  } catch(e) {
+    lines.push('Erro lendo localStorage: ' + e.message);
+  }
+  lines.push('');
+  lines.push('=== SESSÃO SUPABASE ATUAL ===');
+  if (!_supabase) {
+    lines.push('❌ Supabase SDK não carregou');
+  } else {
+    try {
+      var sess = await _supabase.auth.getSession();
+      if (sess.data && sess.data.session) {
+        lines.push('✅ Sessão ativa');
+        lines.push('  user: ' + sess.data.session.user.email);
+        lines.push('  expira em: ' + new Date(sess.data.session.expires_at * 1000).toISOString());
+      } else {
+        lines.push('❌ Sem sessão ativa');
+      }
+      if (sess.error) lines.push('  erro: ' + sess.error.message);
+    } catch(e) {
+      lines.push('Erro: ' + e.message);
+    }
+  }
+  lines.push('');
+  lines.push('=== LOG DA ÚLTIMA SESSÃO ===');
+  lines = lines.concat(window._authLog);
+
+  document.getElementById('debug-content').textContent = lines.join('\n');
+  document.getElementById('debug-modal').style.display = 'block';
+}
+
 // ── INIT ──────────────────────────────────────────────────────────────────
 (async function initAuth() {
-  console.log('[AUTH] initAuth iniciado. PWA standalone:', window.matchMedia('(display-mode: standalone)').matches);
+  logAuth('initAuth iniciado. PWA standalone:', window.matchMedia('(display-mode: standalone)').matches);
 
   if (!_supabase) {
-    console.error('[AUTH] Supabase SDK não carregou.');
+    logAuth('ERROR: Supabase SDK não carregou.');
     hideSessionLoading();
     showLoginOverlay();
     return;
@@ -3568,16 +3649,16 @@ function hideSessionLoading() {
   try {
     var allKeys = Object.keys(localStorage);
     var authKeys = allKeys.filter(function(k) { return k.indexOf('supabase') !== -1 || k.indexOf('sb-') === 0; });
-    console.log('[AUTH] Chaves de auth no localStorage:', authKeys);
+    logAuth('Chaves de auth no localStorage:', authKeys);
     authKeys.forEach(function(k) {
       var v = localStorage.getItem(k);
-      console.log('[AUTH] ', k, '=>', v ? v.slice(0, 80) + '...' : 'vazio');
+      logAuth('', k, '=>', v ? v.slice(0, 80) + '...' : 'vazio');
     });
-  } catch(e) { console.warn('[AUTH] Não conseguiu ler localStorage:', e); }
+  } catch(e) { logAuth('WARN: Não conseguiu ler localStorage:', e); }
 
   // Listener ÚNICO registrado antes de qualquer getSession()
   _supabase.auth.onAuthStateChange(function(event, session) {
-    console.log('[AUTH] evento:', event, 'tem sessão:', !!session);
+    logAuth('evento:', event, 'tem sessão:', !!session);
     if (session && session.user) {
       // Backup manual da sessão (redundância para casos onde o storage padrão do Supabase falha)
       try {
@@ -3611,13 +3692,13 @@ function hideSessionLoading() {
           user: session.user
         }));
       } catch(e) {}
-      console.log('[AUTH] Token renovado.');
+      logAuth('Token renovado.');
     }
   });
 
   try {
     var result = await _supabase.auth.getSession();
-    console.log('[AUTH] getSession resultado:', result.data && result.data.session ? 'TEM SESSÃO' : 'sem sessão', result.error || '');
+    logAuth('getSession resultado:', result.data && result.data.session ? 'TEM SESSÃO' : 'sem sessão', result.error || '');
 
     // Se Supabase não encontrou sessão, tenta restaurar do backup manual
     if (!result.data || !result.data.session) {
@@ -3625,21 +3706,21 @@ function hideSessionLoading() {
       try { backup = JSON.parse(localStorage.getItem('gpg_session_backup') || 'null'); } catch(e) {}
 
       if (backup && backup.refresh_token) {
-        console.log('[AUTH] Tentando restaurar do backup manual...');
+        logAuth('Tentando restaurar do backup manual...');
         try {
           var restoreRes = await _supabase.auth.setSession({
             access_token: backup.access_token,
             refresh_token: backup.refresh_token
           });
           if (restoreRes.data && restoreRes.data.session) {
-            console.log('[AUTH] ✅ Sessão restaurada do backup!');
+            logAuth('✅ Sessão restaurada do backup!');
             return; // onAuthStateChange vai disparar
           } else {
-            console.warn('[AUTH] Backup expirado ou inválido:', restoreRes.error);
+            logAuth('WARN: Backup expirado ou inválido:', restoreRes.error);
             try { localStorage.removeItem('gpg_session_backup'); } catch(e) {}
           }
         } catch(e) {
-          console.warn('[AUTH] Falha ao restaurar backup:', e);
+          logAuth('WARN: Falha ao restaurar backup:', e);
         }
       }
 
@@ -3648,7 +3729,7 @@ function hideSessionLoading() {
     }
     // Se tem sessão, o onAuthStateChange acima já vai disparar INITIAL_SESSION e chamar onLoginSuccess
   } catch(e) {
-    console.error('[AUTH] erro no getSession:', e);
+    logAuth('ERROR: erro no getSession:', e);
     hideSessionLoading();
     showLoginOverlay();
   }
