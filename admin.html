@@ -3524,8 +3524,7 @@ try {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storage: window.localStorage,
-        storageKey: 'guia-pobre-auth'
+        storage: window.localStorage
       }
     });
   }
@@ -3542,50 +3541,33 @@ function hideSessionLoading() {
 // ── INIT ──────────────────────────────────────────────────────────────────
 (async function initAuth() {
   if (!_supabase) { hideSessionLoading(); showLoginOverlay(); return; }
-  try {
-    var hash = window.location.hash;
 
-    // Tem token na URL — magic link acabou de ser clicado
-    if (hash && hash.includes('access_token')) {
-      _supabase.auth.onAuthStateChange(function(event, session) {
-        if (session && session.user) {
-          hideSessionLoading();
-          onLoginSuccess(session.user);
-          history.replaceState(null, '', window.location.pathname);
-        } else if (event === 'SIGNED_OUT') {
-          currentUser = null;
-          hideSessionLoading();
-          showLoginOverlay();
-        }
-      });
-      await _supabase.auth.getSession();
-      return;
-    }
-
-    // Sem token na URL — tenta recuperar sessão salva no localStorage
-    const { data: { session } } = await _supabase.auth.getSession();
+  // Listener ÚNICO registrado antes de qualquer getSession()
+  // Isso garante que o evento INITIAL_SESSION (sessao salva) seja capturado
+  _supabase.auth.onAuthStateChange(function(event, session) {
     if (session && session.user) {
       hideSessionLoading();
-      onLoginSuccess(session.user);
-      _supabase.auth.onAuthStateChange(function(event, session) {
-        if (event === 'SIGNED_OUT') { currentUser = null; showLoginOverlay(); }
-        else if (event === 'TOKEN_REFRESHED' && session?.user) { currentUser = session.user; }
-      });
-      return;
-    }
-
-    // Nenhuma sessão — mostra login
-    hideSessionLoading();
-    _supabase.auth.onAuthStateChange(function(event, session) {
-      if (session && session.user) {
+      if (!currentUser || currentUser.id !== session.user.id) {
         onLoginSuccess(session.user);
-        history.replaceState(null, '', window.location.pathname);
-      } else if (event === 'SIGNED_OUT') {
-        currentUser = null;
-        showLoginOverlay();
       }
-    });
-    showLoginOverlay();
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        history.replaceState(null, '', window.location.pathname);
+      }
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      hideSessionLoading();
+      showLoginOverlay();
+    } else if (event === 'TOKEN_REFRESHED' && session && session.user) {
+      currentUser = session.user;
+    }
+  });
+
+  try {
+    var result = await _supabase.auth.getSession();
+    if (!result.data || !result.data.session) {
+      hideSessionLoading();
+      showLoginOverlay();
+    }
   } catch(e) {
     console.error(e);
     hideSessionLoading();
