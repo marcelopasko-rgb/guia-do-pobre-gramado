@@ -5,41 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>Guia do Pobre em Gramado</title>
 <!-- ── PWA META TAGS ── -->
-<script>
-// Injeta o Web App Manifest dinamicamente
-(function() {
-  const manifest = {
-    name: "Guia do Pobre em Gramado",
-    short_name: "Guia do Pobre",
-    description: "O guia definitivo para curtir Gramado gastando pouco",
-    start_url: "./",
-    display: "standalone",
-    background_color: "#0d0d0f",
-    theme_color: "#0d0d0f",
-    orientation: "portrait-primary",
-    icons: [
-      {
-        src: "https://guia-do-pobre-gramado.vercel.app/icone_512.png",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "any maskable"
-      },
-      {
-        src: "https://guia-do-pobre-gramado.vercel.app/icone_192.png",
-        sizes: "192x192",
-        type: "image/png",
-        purpose: "any maskable"
-      }
-    ]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('link');
-  link.rel = 'manifest';
-  link.href = url;
-  document.head.appendChild(link);
-})();
-</script>
+<link rel="manifest" href="/manifest.json">
 
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3808,39 +3774,8 @@ function hideSessionLoading() {
   if (!_supabase) { hideSessionLoading(); showLoginOverlay(); return; }
   try {
     var hash = window.location.hash;
-    var params = new URLSearchParams(window.location.search);
-    var tokenHash = params.get('token_hash');
-    var tokenType = params.get('type');
 
-    // PKCE flow: link do email traz ?token_hash=...&type=email
-    if (tokenHash && tokenType) {
-      try {
-        var vr = await _supabase.auth.verifyOtp({ token_hash: tokenHash, type: tokenType });
-        if (vr.error) throw vr.error;
-        if (vr.data && vr.data.user) {
-          hideSessionLoading();
-          onLoginSuccess(vr.data.user);
-          history.replaceState(null, '', window.location.pathname);
-          return;
-        }
-      } catch (err) {
-        console.error('Erro ao verificar token_hash:', err);
-        hideSessionLoading();
-        showLoginOverlay();
-        // Mostra erro depois que o overlay abrir
-        setTimeout(function() {
-          var msgEl = document.getElementById('login-msg');
-          if (msgEl) {
-            msgEl.textContent = 'Link expirado ou já usado. Solicite um novo.';
-            msgEl.className = 'login-msg error';
-          }
-        }, 100);
-        history.replaceState(null, '', window.location.pathname);
-        return;
-      }
-    }
-
-    // Tem token na URL — magic link acabou de ser clicado (fluxo implicit, fallback)
+    // Tem token na URL — magic link acabou de ser clicado
     if (hash && hash.includes('access_token')) {
       _supabase.auth.onAuthStateChange(function(event, session) {
         if (session && session.user) {
@@ -3948,15 +3883,12 @@ async function handleSendOtp() {
     return;
   }
 
-  // signInWithOtp com emailRedirectTo: o template do email envia
-  // {{ .TokenHash }} no link (PKCE) e {{ .Token }} no código de 8 dígitos.
-  // Os dois fluxos ficam independentes — clicar no link NÃO invalida o código,
-  // porque o token_hash do link é diferente do token do código OTP.
+  // signInWithOtp sem emailRedirectTo: o Supabase envia o código OTP (8 dígitos)
+  // (sem emailRedirectTo o link no email não fica clicável, forçando o usuário a usar o código)
   var res = await _supabase.auth.signInWithOtp({
     email: email,
     options: {
-      shouldCreateUser: false,
-      emailRedirectTo: window.location.origin + window.location.pathname
+      shouldCreateUser: false
     }
   });
 
