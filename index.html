@@ -1888,7 +1888,45 @@ function showToast(msg){
   t.textContent=msg;t.classList.add('show');
   clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2300);
 }
-function openOverlay(id){document.getElementById(id).classList.add('open');}
+function openOverlay(id){
+  ensureBuilt(id);
+  document.getElementById(id).classList.add('open');
+}
+
+// ── LAZY BUILD: constrói o conteúdo de cada overlay apenas na primeira abertura
+// Economiza ~80-90% do tempo de boot em celulares mais lentos.
+const _builtOverlays = new Set();
+function ensureBuilt(overlayId) {
+  if (_builtOverlays.has(overlayId)) return;
+  _builtOverlays.add(overlayId);
+  try {
+    switch (overlayId) {
+      case 'overlay-roteiro':
+        buildRoteiro();
+        applyRoteiroChecked();
+        break;
+      case 'overlay-promocoes':
+        buildPromocoes();
+        break;
+      case 'overlay-restaurantes':
+        buildRestaurantes();
+        break;
+      case 'overlay-atracoes':
+        buildAtracoes();
+        break;
+      case 'overlay-gratuitos':
+        buildGratuitos();
+        break;
+      case 'overlay-relampago':
+        buildRelampago();
+        break;
+    }
+  } catch(e) {
+    // Build falhou — remove da lista pra tentar de novo na próxima abertura
+    _builtOverlays.delete(overlayId);
+    console.error('ensureBuilt(' + overlayId + '):', e);
+  }
+}
 function closeOverlay(id){
   document.getElementById(id).classList.remove('open');
   const searches = {
@@ -2576,18 +2614,16 @@ function _adicionarBadgePerfil(perfil) {
   }
   var bannerSub = document.getElementById('rota-banner-sub');
   if (bannerSub && currentUser) {
-    var nome = (currentUser.user_metadata && currentUser.user_metadata.full_name)
-      ? currentUser.user_metadata.full_name.split(' ')[0]
-      : currentUser.email.split('@')[0];
+    var fullName = (currentUser.user_metadata && currentUser.user_metadata.full_name) || '';
+    var nome = fullName ? fullName.split(' ')[0] : 'você';
     bannerSub.textContent = 'Personalizado com carinho para ' + nome + ' ✨';
   }
 
   // Subtítulo dentro do overlay do roteiro
   var subtitulo = document.getElementById('roteiro-subtitulo');
   if (subtitulo && currentUser) {
-    var nome2 = (currentUser.user_metadata && currentUser.user_metadata.full_name)
-      ? currentUser.user_metadata.full_name.split(' ')[0]
-      : currentUser.email.split('@')[0];
+    var fullName2 = (currentUser.user_metadata && currentUser.user_metadata.full_name) || '';
+    var nome2 = fullName2 ? fullName2.split(' ')[0] : 'você';
     subtitulo.textContent = '✨ Personalizado com carinho para ' + nome2;
     subtitulo.style.display = 'block';
   }
@@ -2595,9 +2631,8 @@ function _adicionarBadgePerfil(perfil) {
   // Label "Personalizado para [nome]" no cabeçalho do overlay
   var labelEl = document.getElementById('roteiro-personalizado-label');
   if (labelEl && currentUser) {
-    var nomeLabel = (currentUser.user_metadata && currentUser.user_metadata.full_name)
-      ? currentUser.user_metadata.full_name.split(' ')[0]
-      : currentUser.email.split('@')[0];
+    var fullName3 = (currentUser.user_metadata && currentUser.user_metadata.full_name) || '';
+    var nomeLabel = fullName3 ? fullName3.split(' ')[0] : 'você';
     labelEl.textContent = '✨ Personalizado para ' + nomeLabel;
     labelEl.style.display = 'block';
   }
@@ -2614,7 +2649,11 @@ function _adicionarBadgePerfil(perfil) {
 
 // ── CARREGA ROTEIRO PERSONALIZADO DO SUPABASE ────────────────────────────
 async function carregarRoteiroPersonalizado() {
-  if (!_supabase || !currentUser) { buildRoteiro(); return; }
+  // Independente do que vier do backend, ao terminar essa função o overlay-roteiro
+  // estará construído — marca aqui pra evitar rebuild quando o usuário abrir.
+  _builtOverlays.add('overlay-roteiro');
+
+  if (!_supabase || !currentUser) { buildRoteiro(); applyRoteiroChecked(); return; }
 
   var body = document.getElementById('roteiro-content') || document.getElementById('roteiro-body');
   if (body) body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">⏳ Carregando seu roteiro personalizado...</div>';
@@ -2684,10 +2723,8 @@ async function carregarRoteiroPersonalizado() {
 }
 
 
-buildRoteiro();
-applyRoteiroChecked();
-buildPromocoes();
-buildRestaurantes();
+// (Removido: buildRoteiro/buildPromocoes/buildRestaurantes eager.
+//  Agora são construídos sob demanda via ensureBuilt() ao abrir overlay.)
 
 
 // Atrações sem botão de comprar ingresso
@@ -2780,8 +2817,7 @@ function showTab(name) {
   if (el) el.classList.add('active');
 }
 
-buildAtracoes();
-buildGratuitos();
+// (Removido: buildAtracoes/buildGratuitos eager — usam ensureBuilt sob demanda.)
 
 /* ═══ SEARCH ═══ */
 function handleSearch(input) {
@@ -3042,7 +3078,7 @@ function copiarCupom(cupom) {
   showToast('Cupom ' + cupom + ' copiado! 🎟️');
 }
 
-buildRelampago();
+// (Removido: buildRelampago eager — agora sob demanda via ensureBuilt.)
 
 
 /* ═══ PERFIL ═══ */
@@ -3051,12 +3087,14 @@ function renderPerfil() {
   if (!body) return;
 
   const logado = !!currentUser;
-  const nome   = logado
-    ? ((currentUser.user_metadata && currentUser.user_metadata.full_name) || currentUser.email.split('@')[0])
-    : 'Visitante';
+  const meta   = (currentUser && currentUser.user_metadata) || {};
+  const fullName = (meta.full_name || meta.name || '').trim();
+  // Sem fallback pro email: se não tem nome customizado, mostra "Membro" + sugestão de definir
+  const nome   = logado ? (fullName || 'Membro') : 'Visitante';
   const email  = logado ? currentUser.email : '—';
   const cor    = logado ? getAvatarColor(nome) : '#52525b';
   const ini    = logado ? getInitials(nome)    : '?';
+  const semNome = logado && !fullName;
 
   body.innerHTML = `
   <!-- Hero do perfil -->
@@ -3064,7 +3102,13 @@ function renderPerfil() {
     <div style="width:72px;height:72px;border-radius:50%;background:${cor};display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;color:#fff;margin:0 auto 12px;box-shadow:0 6px 24px ${cor}55;">${ini}</div>
     <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--text);letter-spacing:-0.5px;">${nome}</div>
     <div style="font-size:11px;color:var(--muted);margin-top:4px;">${email}</div>
-    ${logado ? `<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:100px;padding:4px 12px;margin-top:10px;font-size:10px;font-weight:700;color:#4ade80;">
+    ${semNome ? `<button onclick="editarNomePublico()" style="margin-top:10px;background:rgba(168,85,247,0.12);border:1px solid rgba(168,85,247,0.3);color:var(--purple);border-radius:100px;padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Space Grotesk',sans-serif;display:inline-flex;align-items:center;gap:5px;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px;height:11px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      Escolher meu nome
+    </button>` : (logado ? `<button onclick="editarNomePublico()" style="margin-top:10px;background:transparent;border:1px solid var(--border);color:var(--muted);border-radius:100px;padding:5px 12px;font-size:10px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;">
+      Editar nome
+    </button>` : '')}
+    ${logado ? `<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);border-radius:100px;padding:4px 12px;margin-top:10px;font-size:10px;font-weight:700;color:#4ade80;margin-left:8px;">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:11px;height:11px;"><polyline points="20 6 9 17 4 12"/></svg>
       Membro ativo
     </div>` : `<div style="display:inline-flex;align-items:center;gap:5px;background:rgba(113,113,122,0.15);border:1px solid var(--border);border-radius:100px;padding:4px 12px;margin-top:10px;font-size:10px;font-weight:700;color:var(--muted);">Visitante</div>`}
@@ -3181,12 +3225,105 @@ function getAvatarColor(str) {
 function getInitials(name) {
   return (name || 'V').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase();
 }
+// ── DISPLAY NAME ──────────────────────────────────────────────────────────
+// Retorna o nome PÚBLICO do usuário (usado em posts, comentários).
+// IMPORTANTE: NÃO usa o email como fallback — emails revelam dados pessoais
+// (sobrenome, número de telefone, ano de nascimento, etc.). Se o usuário ainda
+// não escolheu um nome customizado, retorna null para o caller decidir o que fazer.
+function getPublicDisplayName() {
+  if (!currentUser) return null;
+  var meta = currentUser.user_metadata || {};
+  var nome = (meta.full_name || meta.name || meta.display_name || '').trim();
+  return nome || null;
+}
+
+// Versão "qualquer coisa serve" — usada em locais NÃO públicos, como saudação
+// no toast de bem-vindo ou avatar do composer (que só você vê).
 function getDisplayName() {
-  if (currentUser) {
-    return (currentUser.user_metadata && currentUser.user_metadata.full_name)
-      || currentUser.email.split('@')[0];
+  return getPublicDisplayName() || 'Visitante';
+}
+
+// Salva o nome público escolhido pelo usuário no user_metadata do Supabase.
+// O nome persiste entre sessões e fica vinculado à conta.
+async function setPublicDisplayName(nome) {
+  if (!_supabase || !currentUser) return false;
+  nome = String(nome || '').trim().slice(0, 40);
+  if (!nome) return false;
+  try {
+    const { data, error } = await _supabase.auth.updateUser({
+      data: { full_name: nome }
+    });
+    if (error) { console.warn('setPublicDisplayName:', error.message); return false; }
+    if (data && data.user) {
+      currentUser = data.user;
+      // Atualiza o chip do header com o novo nome (estava mostrando "Membro")
+      try { updateHeaderForUser(currentUser); } catch(e) {}
+    }
+    return true;
+  } catch(e) {
+    console.warn('setPublicDisplayName exception:', e);
+    return false;
   }
-  return 'Visitante';
+}
+
+// Abre a sheet pedindo o nome público. Retorna uma Promise que resolve com o nome
+// digitado (string) ou null se o usuário cancelar.
+function pedirNomePublico() {
+  return new Promise(function(resolve) {
+    const sheet = document.getElementById('nome-sheet');
+    const panel = document.getElementById('nome-panel');
+    const input = document.getElementById('nome-input');
+    const btn   = document.getElementById('nome-confirm-btn');
+    if (!sheet || !panel || !input || !btn) { resolve(null); return; }
+
+    // Sugere o que tem em user_metadata.full_name (se houver) — sem usar email
+    input.value = '';
+    sheet.style.display = 'block';
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        panel.style.transform = 'translateY(0)';
+        setTimeout(function() { input.focus(); }, 250);
+      });
+    });
+
+    function close(valor) {
+      panel.style.transform = 'translateY(100%)';
+      setTimeout(function() {
+        sheet.style.display = 'none';
+        btn.onclick = null;
+        input.onkeydown = null;
+        cancelBtn.onclick = null;
+        resolve(valor);
+      }, 350);
+    }
+
+    btn.onclick = function() {
+      const v = input.value.trim();
+      if (!v) { showToast('Digite um nome para aparecer.'); return; }
+      if (v.length < 2) { showToast('Nome muito curto.'); return; }
+      close(v);
+    };
+    input.onkeydown = function(e) {
+      if (e.key === 'Enter') btn.click();
+    };
+    const cancelBtn = document.getElementById('nome-cancel-btn');
+    cancelBtn.onclick = function() { close(null); };
+  });
+}
+
+// Botão "Editar nome" / "Escolher meu nome" no perfil
+async function editarNomePublico() {
+  if (!currentUser) { showToast('Faça login primeiro.'); return; }
+  const novo = await pedirNomePublico();
+  if (!novo) return;
+  const ok = await setPublicDisplayName(novo);
+  if (ok) {
+    showToast('Nome atualizado! ✨');
+    // Re-renderiza o perfil pra mostrar o novo nome
+    if (typeof renderPerfil === 'function') renderPerfil();
+  } else {
+    showToast('Não foi possível salvar. Tente de novo.');
+  }
 }
 
 // ── PHOTO UPLOAD ──────────────────────────────────────────────────────────
@@ -3327,13 +3464,22 @@ async function publishPost() {
   const tagsValidas = ['dica','foto','restaurante','hotel','atração','economia'];
   if (!tagsValidas.includes(tag)) tag = 'dica';
 
+  // Se ainda não tem nome público, pede agora. Isso evita que partes do email
+  // virem nome visível ('marcelo.silva' → todo mundo vê o sobrenome).
+  if (!getPublicDisplayName()) {
+    const escolhido = await pedirNomePublico();
+    if (!escolhido) { showToast('Escolha um nome para publicar.'); return; }
+    const ok = await setPublicDisplayName(escolhido);
+    if (!ok) { showToast('Não foi possível salvar seu nome. Tente de novo.'); return; }
+  }
+
   const btn = document.querySelector('[onclick="publishPost()"]');
   if (btn) { btn.disabled = true; btn.textContent = '...'; }
 
   let fotoUrl = null;
   if (selectedPhoto) { fotoUrl = await uploadFotoStorage(selectedPhoto); }
 
-  const nome = (getDisplayName() || 'Membro').slice(0, 80); // limite de 80 chars no nome
+  const nome = (getPublicDisplayName() || 'Membro').slice(0, 80); // limite de 80 chars no nome
   const post = {
     autor:    nome,
     avatar:   getInitials(nome),
@@ -3468,7 +3614,15 @@ async function submitComment(postId) {
   if (!post) return;
   if (!post.comentarios) post.comentarios = [];
 
-  const nome = (getDisplayName() || 'Membro').slice(0, 80);
+  // Gate de nome público — mesmo critério do publishPost
+  if (!getPublicDisplayName()) {
+    const escolhido = await pedirNomePublico();
+    if (!escolhido) { showToast('Escolha um nome para comentar.'); return; }
+    const ok = await setPublicDisplayName(escolhido);
+    if (!ok) { showToast('Não foi possível salvar seu nome. Tente de novo.'); return; }
+  }
+
+  const nome = (getPublicDisplayName() || 'Membro').slice(0, 80);
   const novoComentario = {
     post_id: postId,
     user_id: currentUser.id,
@@ -4129,9 +4283,10 @@ function onLoginSuccess(user) {
   currentUser = user;
   hideLoginOverlay();
   updateHeaderForUser(user);
-  var name = (user.user_metadata && user.user_metadata.full_name)
-    || (user.email && user.email.split('@')[0])
-    || 'viajante';
+  // Saudação: usa nome customizado se houver, senão genérico "viajante".
+  // NÃO usa pedaço do email — vaza dados pessoais em screenshots/posts.
+  var meta = user.user_metadata || {};
+  var name = (meta.full_name || meta.name || '').trim() || 'viajante';
   showToast('Bem-vindo, ' + name + '! 🎉');
   // Carrega roteiro personalizado em background
   carregarRoteiroPersonalizado();
@@ -4141,18 +4296,26 @@ function onLoginSuccess(user) {
 
 /* ═══ TRACKING DE CLIQUES ═══ */
 async function track(evento, payload = {}) {
+  if (!_supabase) return;
   try {
-    if (!_supabase) return;
-    const { data: { user } } = await _supabase.auth.getUser();
-    await _supabase.from('eventos').insert({
-      user_id: user?.id || null,
+    // Usa currentUser em cache em vez de fazer round-trip a cada evento.
+    // (currentUser é setado por onLoginSuccess/auth state change)
+    const { error } = await _supabase.from('eventos').insert({
+      user_id: currentUser ? currentUser.id : null,
       evento,
       payload
     });
-  } catch(e) {}
+    if (error) console.warn('track(' + evento + ') falhou:', error.message || error);
+  } catch(e) {
+    console.warn('track(' + evento + ') exception:', e);
+  }
 }
 
-// Delegação de eventos — captura cliques em botões de desconto em todas as abas
+// Flag pra disparar o prompt PWA na primeira interação com botão de desconto
+let _pwaDiscountTriggered = false;
+
+// Delegação ÚNICA de eventos — captura cliques em botões de desconto.
+// Faz tracking + dispara PWA prompt na primeira vez, tudo em um handler só.
 document.addEventListener('click', function(e) {
   const btn = e.target.closest('.btn-comprar, .btn-roteiro-desconto');
   if (!btn) return;
@@ -4174,11 +4337,9 @@ document.addEventListener('click', function(e) {
   else if (overlayId === 'overlay-atracoes') evento = 'clique_atracao';
 
   track(evento, { nome: titulo, overlay: overlayId, href: btn.href || null });
-});
 
-
-document.addEventListener('click', function(e) {
-  if (!_pwaDiscountTriggered && e.target.closest('.btn-comprar, .btn-roteiro-desconto')) {
+  // Dispara prompt de instalação PWA na primeira vez (sinal forte de engajamento)
+  if (!_pwaDiscountTriggered) {
     _pwaDiscountTriggered = true;
     pwaTrigger();
   }
@@ -4188,21 +4349,43 @@ document.addEventListener('click', function(e) {
 function updateHeaderForUser(user) {
   var badge = document.querySelector('.app-header-badge');
   if (!badge) return;
-  var displayName = (user.user_metadata && user.user_metadata.full_name)
-    || (user.email && user.email.split('@')[0])
-    || 'Você';
+  // Mesma regra do toast: nome customizado ou genérico. NÃO usa pedaço do email,
+  // que seria visível no header e em screenshots.
+  var meta = user.user_metadata || {};
+  var displayName = (meta.full_name || meta.name || '').trim() || 'Membro';
   var initials = displayName.slice(0, 2).toUpperCase();
   var chip = document.createElement('div');
   chip.className = 'user-chip';
   chip.onclick   = handleLogout;
-  chip.title     = 'Sair (' + user.email + ')';
+  chip.title     = 'Sair da conta';
   chip.innerHTML = '<div class="user-avatar">' + initials + '</div><span class="user-name">' + displayName + '</span>';
   badge.replaceWith(chip);
 }
 
 // ── LOGOUT ────────────────────────────────────────────────────────────────
-async function handleLogout() {
-  if (!confirm('Deseja sair da sua conta?')) return;
+// Abre a sheet de confirmação (substitui o confirm() nativo, que quebrava a estética).
+function handleLogout() {
+  const sheet = document.getElementById('logout-sheet');
+  const panel = document.getElementById('logout-panel');
+  if (!sheet || !panel) return;
+  sheet.style.display = 'block';
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      panel.style.transform = 'translateY(0)';
+    });
+  });
+}
+
+function logoutDismiss() {
+  const sheet = document.getElementById('logout-sheet');
+  const panel = document.getElementById('logout-panel');
+  if (!sheet || !panel) return;
+  panel.style.transform = 'translateY(100%)';
+  setTimeout(function() { sheet.style.display = 'none'; }, 350);
+}
+
+async function logoutConfirm() {
+  logoutDismiss();
   if (_supabase) await _supabase.auth.signOut();
   currentUser = null;
   var chip = document.querySelector('.user-chip');
@@ -4339,6 +4522,54 @@ function pwaTrigger() {
           Entendi, obrigado!
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- LOGOUT CONFIRMATION SHEET -->
+  <div id="logout-sheet" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9998;padding:0 0 env(safe-area-inset-bottom,0);">
+    <div onclick="logoutDismiss()" style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:-1;"></div>
+    <div id="logout-panel" style="background:#18181b;border-radius:20px 20px 0 0;border-top:1px solid #2a2a2e;padding:20px 20px 24px;transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.34,1.1,0.64,1);max-width:480px;margin:0 auto;">
+      <div style="width:36px;height:4px;background:#3a3a3e;border-radius:100px;margin:0 auto 18px;"></div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;">
+        <div style="width:48px;height:48px;border-radius:14px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.3);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:3px;">Sair da sua conta?</div>
+          <div style="font-size:11px;color:#71717a;">Você precisará entrar de novo para ver seu roteiro.</div>
+        </div>
+      </div>
+      <button onclick="logoutConfirm()" style="width:100%;background:#ef4444;color:#fff;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:'Space Grotesk',sans-serif;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(239,68,68,0.35);margin-bottom:8px;">
+        Sim, sair
+      </button>
+      <button onclick="logoutDismiss()" style="width:100%;background:transparent;color:#a0a0aa;border:none;padding:10px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;">
+        Cancelar
+      </button>
+    </div>
+  </div>
+
+  <!-- DISPLAY NAME SHEET (escolha de nome público) -->
+  <div id="nome-sheet" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:9998;padding:0 0 env(safe-area-inset-bottom,0);">
+    <div style="position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:-1;"></div>
+    <div id="nome-panel" style="background:#18181b;border-radius:20px 20px 0 0;border-top:1px solid #2a2a2e;padding:20px 20px 24px;transform:translateY(100%);transition:transform 0.35s cubic-bezier(0.34,1.1,0.64,1);max-width:480px;margin:0 auto;">
+      <div style="width:36px;height:4px;background:#3a3a3e;border-radius:100px;margin:0 auto 18px;"></div>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+        <div style="width:48px;height:48px;border-radius:14px;background:rgba(168,85,247,0.15);border:1px solid rgba(168,85,247,0.35);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#fff;margin-bottom:3px;">Como você quer aparecer?</div>
+          <div style="font-size:11px;color:#71717a;line-height:1.5;">Esse nome aparece nos seus posts e comentários — visível para todo mundo.</div>
+        </div>
+      </div>
+      <input type="text" id="nome-input" placeholder="Ex: Marcelo, Mari da Serra, etc." maxlength="40" autocomplete="off" style="width:100%;background:#1e1e22;border:1.5px solid #2a2a2e;border-radius:12px;color:#f4f4f5;font-family:'Space Grotesk',sans-serif;font-size:14px;padding:13px 16px;outline:none;margin-bottom:6px;" />
+      <p style="font-size:10px;color:#52525b;margin:0 0 16px;line-height:1.5;">Dica: pode ser o nome social, apelido — não precisa ser o nome real.</p>
+      <button id="nome-confirm-btn" style="width:100%;background:linear-gradient(135deg,#6d28d9,#a855f7);color:#fff;border:none;border-radius:14px;padding:14px;font-size:14px;font-weight:800;cursor:pointer;font-family:'Space Grotesk',sans-serif;letter-spacing:0.3px;box-shadow:0 4px 16px rgba(168,85,247,0.35);margin-bottom:8px;">
+        Confirmar
+      </button>
+      <button id="nome-cancel-btn" style="width:100%;background:transparent;color:#a0a0aa;border:none;padding:10px;font-size:12px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;">
+        Cancelar
+      </button>
     </div>
   </div>
 
