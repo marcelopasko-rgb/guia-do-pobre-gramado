@@ -5,7 +5,41 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>Guia do Pobre em Gramado</title>
 <!-- ── PWA META TAGS ── -->
-<link rel="manifest" href="/manifest.json">
+<script>
+// Injeta o Web App Manifest dinamicamente
+(function() {
+  const manifest = {
+    name: "Guia do Pobre em Gramado",
+    short_name: "Guia do Pobre",
+    description: "O guia definitivo para curtir Gramado gastando pouco",
+    start_url: "./",
+    display: "standalone",
+    background_color: "#0d0d0f",
+    theme_color: "#0d0d0f",
+    orientation: "portrait-primary",
+    icons: [
+      {
+        src: "https://guia-do-pobre-gramado.vercel.app/icone_512.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any maskable"
+      },
+      {
+        src: "https://guia-do-pobre-gramado.vercel.app/icone_192.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any maskable"
+      }
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('link');
+  link.rel = 'manifest';
+  link.href = url;
+  document.head.appendChild(link);
+})();
+</script>
 
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3159,18 +3193,84 @@ function getDisplayName() {
 function triggerPhotoUpload() {
   document.getElementById('photo-input').click();
 }
-function handlePhotoSelect(e) {
+
+// ── CONSTANTES DE UPLOAD DE FOTO ─────────────────────────────────────────
+const FOTO_TIPOS_PERMITIDOS = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+const FOTO_TAMANHO_MAX_BYTES = 15 * 1024 * 1024; // 15 MB no arquivo bruto (antes da compressão)
+const FOTO_MAX_LARGURA = 1280; // px — qualquer foto maior é redimensionada
+const FOTO_QUALIDADE = 0.82;   // 0..1 para JPEG/WebP
+
+// Comprime e redimensiona a imagem via canvas. Retorna um dataURL (string).
+// Aceita File ou Blob. Sempre devolve JPEG (compressão melhor para fotos).
+function comprimirImagem(fileOrBlob) {
+  return new Promise(function(resolve, reject) {
+    const reader = new FileReader();
+    reader.onerror = function() { reject(new Error('Falha ao ler arquivo.')); };
+    reader.onload  = function(ev) {
+      const img = new Image();
+      img.onerror = function() { reject(new Error('Arquivo não é uma imagem válida.')); };
+      img.onload  = function() {
+        // Calcula novas dimensões mantendo aspect ratio
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > FOTO_MAX_LARGURA) {
+          h = Math.round(h * (FOTO_MAX_LARGURA / w));
+          w = FOTO_MAX_LARGURA;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width  = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        // Fundo branco (caso PNG com transparência vire JPEG)
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+        try {
+          const dataUrl = canvas.toDataURL('image/jpeg', FOTO_QUALIDADE);
+          resolve(dataUrl);
+        } catch(e) { reject(e); }
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(fileOrBlob);
+  });
+}
+
+async function handlePhotoSelect(e) {
   const file = e.target.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = function(ev) {
-    selectedPhoto = ev.target.result;
-    const wrap = document.getElementById('photo-preview-wrap');
-    const img  = document.getElementById('photo-preview');
-    img.src = selectedPhoto;
-    wrap.style.display = 'block';
-  };
-  reader.readAsDataURL(file);
+
+  // 1. Valida tipo (file.type pode vir vazio em alguns cenários iOS — então só rejeita se vier preenchido e for proibido)
+  if (file.type && !FOTO_TIPOS_PERMITIDOS.includes(file.type.toLowerCase())) {
+    showToast('Formato não permitido. Use JPG, PNG ou WebP.');
+    e.target.value = '';
+    return;
+  }
+
+  // 2. Valida tamanho do arquivo bruto
+  if (file.size > FOTO_TAMANHO_MAX_BYTES) {
+    const mb = (file.size / 1024 / 1024).toFixed(1);
+    showToast('Foto muito grande (' + mb + ' MB). Máximo: 15 MB.');
+    e.target.value = '';
+    return;
+  }
+
+  // 3. Comprime no cliente antes de subir
+  showToast('Otimizando foto...');
+  try {
+    selectedPhoto = await comprimirImagem(file);
+  } catch(err) {
+    console.error('comprimirImagem:', err);
+    showToast('Erro ao processar foto. Tente outra imagem.');
+    e.target.value = '';
+    return;
+  }
+
+  // 4. Exibe preview
+  const wrap = document.getElementById('photo-preview-wrap');
+  const img  = document.getElementById('photo-preview');
+  img.src = selectedPhoto;
+  wrap.style.display = 'block';
 }
 function removePhoto() {
   selectedPhoto = null;
@@ -3184,9 +3284,30 @@ async function uploadFotoStorage(dataUrl) {
   try {
     const res  = await fetch(dataUrl);
     const blob = await res.blob();
-    const ext  = blob.type.includes('png') ? 'png' : 'jpg';
+
+    // Defesa em profundidade: revalida tipo do blob final
+    // (após compressão sempre vira image/jpeg, mas guardamos a verificação)
+    const tipo = (blob.type || '').toLowerCase();
+    if (!FOTO_TIPOS_PERMITIDOS.includes(tipo)) {
+      console.error('Upload foto: tipo inválido após compressão:', tipo);
+      showToast('Formato de imagem inválido.');
+      return null;
+    }
+
+    // Defesa em profundidade: o blob comprimido nunca deveria passar do limite,
+    // mas se passar (foto enorme + qualidade alta) abortamos.
+    if (blob.size > FOTO_TAMANHO_MAX_BYTES) {
+      console.error('Upload foto: blob excedeu limite após compressão:', blob.size);
+      showToast('Foto muito grande mesmo após otimização.');
+      return null;
+    }
+
+    const ext  = tipo.includes('png') ? 'png' : (tipo.includes('webp') ? 'webp' : 'jpg');
     const path = `comunidade/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-    const { error } = await _supabase.storage.from('fotos').upload(path, blob, { contentType: blob.type });
+    const { error } = await _supabase.storage.from('fotos').upload(path, blob, {
+      contentType: tipo,
+      cacheControl: '31536000' // 1 ano — fotos são imutáveis (path único)
+    });
     if (error) { console.error('Upload foto:', error.message); return null; }
     const { data } = _supabase.storage.from('fotos').getPublicUrl(path);
     return data.publicUrl;
@@ -3393,12 +3514,12 @@ async function loadPosts() {
     feed.innerHTML = '<div style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">Carregando posts...</div>';
   }
 
-  // Busca posts, reações e comentários em paralelo
-  const [postsRes, reacoesRes, comentariosRes] = await Promise.all([
-    _supabase.from('comunidade_posts').select('*').order('tempo', { ascending: false }).limit(50),
-    _supabase.from('comunidade_reacoes').select('post_id, user_id, emoji'),
-    _supabase.from('comunidade_comentarios').select('*').order('created_at', { ascending: true })
-  ]);
+  // 1ª query: busca os 50 posts mais recentes
+  const postsRes = await _supabase
+    .from('comunidade_posts')
+    .select('*')
+    .order('tempo', { ascending: false })
+    .limit(50);
 
   if (postsRes.error) {
     console.error('loadPosts (posts):', postsRes.error);
@@ -3410,8 +3531,33 @@ async function loadPosts() {
   }
 
   const posts = postsRes.data || [];
-  const reacoes = reacoesRes.data || [];
-  const comentarios = comentariosRes.data || [];
+  const postIds = posts.map(p => p.id);
+
+  // Se não tem posts, evita chamadas desnecessárias com .in('post_id', [])
+  let reacoes = [];
+  let comentarios = [];
+
+  if (postIds.length > 0) {
+    // 2ª etapa: busca reações e comentários SOMENTE dos posts carregados
+    const [reacoesRes, comentariosRes] = await Promise.all([
+      _supabase
+        .from('comunidade_reacoes')
+        .select('post_id, user_id, emoji')
+        .in('post_id', postIds),
+      _supabase
+        .from('comunidade_comentarios')
+        .select('*')
+        .in('post_id', postIds)
+        .order('created_at', { ascending: true })
+    ]);
+
+    if (reacoesRes.error) console.error('loadPosts (reacoes):', reacoesRes.error);
+    if (comentariosRes.error) console.error('loadPosts (comentarios):', comentariosRes.error);
+
+    reacoes = reacoesRes.data || [];
+    comentarios = comentariosRes.data || [];
+  }
+
   const meuId = currentUser ? currentUser.id : null;
 
   // Agrupa reações por post: { postId: { emoji: count } } e marca quais são minhas
