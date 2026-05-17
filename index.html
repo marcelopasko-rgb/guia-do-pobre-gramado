@@ -5,41 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>Guia do Pobre em Gramado</title>
 <!-- ── PWA META TAGS ── -->
-<script>
-// Injeta o Web App Manifest dinamicamente
-(function() {
-  const manifest = {
-    name: "Guia do Pobre em Gramado",
-    short_name: "Guia do Pobre",
-    description: "O guia definitivo para curtir Gramado gastando pouco",
-    start_url: "./",
-    display: "standalone",
-    background_color: "#0d0d0f",
-    theme_color: "#0d0d0f",
-    orientation: "portrait-primary",
-    icons: [
-      {
-        src: "https://guia-do-pobre-gramado.vercel.app/icone_512.png",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "any maskable"
-      },
-      {
-        src: "https://guia-do-pobre-gramado.vercel.app/icone_192.png",
-        sizes: "192x192",
-        type: "image/png",
-        purpose: "any maskable"
-      }
-    ]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('link');
-  link.rel = 'manifest';
-  link.href = url;
-  document.head.appendChild(link);
-})();
-</script>
+<link rel="manifest" href="/manifest.json">
 
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -3274,9 +3240,9 @@ function pedirNomePublico() {
     const panel = document.getElementById('nome-panel');
     const input = document.getElementById('nome-input');
     const btn   = document.getElementById('nome-confirm-btn');
-    if (!sheet || !panel || !input || !btn) { resolve(null); return; }
+    const cancelBtn = document.getElementById('nome-cancel-btn');
+    if (!sheet || !panel || !input || !btn || !cancelBtn) { resolve(null); return; }
 
-    // Sugere o que tem em user_metadata.full_name (se houver) — sem usar email
     input.value = '';
     sheet.style.display = 'block';
     requestAnimationFrame(function() {
@@ -3306,7 +3272,6 @@ function pedirNomePublico() {
     input.onkeydown = function(e) {
       if (e.key === 'Enter') btn.click();
     };
-    const cancelBtn = document.getElementById('nome-cancel-btn');
     cancelBtn.onclick = function() { close(null); };
   });
 }
