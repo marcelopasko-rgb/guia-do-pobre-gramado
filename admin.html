@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dashboard — Guia do Pobre</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -228,6 +227,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
     <div class="topbar-right">
       <span class="topbar-meta" id="last-update">—</span>
       <button class="refresh-btn" onclick="carregarDados()">↻ Atualizar</button>
+      <button class="refresh-btn" onclick="logout()" title="Sair">⎋ Sair</button>
     </div>
   </div>
 
@@ -422,9 +422,10 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 </div>
 
 <script>
-const SUPABASE_URL  = 'https://jltxatuypkmchitkafkq.supabase.co';
-const SERVICE_KEY   = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsdHhhdHV5cGttY2hpdGthZmtxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3ODU0MDY4MywiZXhwIjoyMDk0MTE2NjgzfQ.hAWEm5Gr0Vy_w1-I95umY0X2Pvvy3Yy5qcKsMtQyyg4';
-const SENHA_CORRETA = 'narutointer00EM*';
+// ⚠️ Sem credenciais aqui! Tanto a senha do admin quanto a service_key do
+// Supabase agora vivem em Environment Variables do Vercel e só são acessadas
+// pelos endpoints serverless em /api/admin-login e /api/admin-stats.
+const TOKEN_STORAGE_KEY = 'admin_session_token';
 
 // Lista completa de parques para detectar os sem clique
 const TODOS_PARQUES = ['Snowland','Skyglass Canela','Bondinhos Aéreos Canela','Space Adventure',
@@ -438,36 +439,82 @@ const TODOS_PARQUES = ['Snowland','Skyglass Canela','Bondinhos Aéreos Canela','
   'Chocoland','Vitivinícola Jolimont','Museu de Cera Dreamland','Super Carros',
   'Museu do Vinho','Pedras do Silêncio','Canyons e Balões','Kongo Pizzaria','Cervejaria Farol'];
 
-let _sb = null;
 let chartInstance = null;
 
-function tentarLogin() {
+async function tentarLogin() {
   const v = document.getElementById('senha-input').value;
-  if (v === SENHA_CORRETA) {
+  const errEl = document.getElementById('login-err');
+  errEl.style.display = 'none';
+
+  const btn = document.querySelector('.login-btn');
+  const txtOriginal = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'Verificando...';
+
+  try {
+    const res = await fetch('/api/admin-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ senha: v })
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      errEl.textContent = data.error || 'Senha incorreta.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    const { token } = await res.json();
+    sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
+
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
-    iniciarDashboard();
-  } else {
-    document.getElementById('login-err').style.display = 'block';
+    carregarDados();
+  } catch(e) {
+    errEl.textContent = 'Erro de conexão. Tente novamente.';
+    errEl.style.display = 'block';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = txtOriginal;
   }
 }
 
-function iniciarDashboard() {
-  _sb = window.supabase.createClient(SUPABASE_URL, SERVICE_KEY);
-  carregarDados();
+function getToken() {
+  return sessionStorage.getItem(TOKEN_STORAGE_KEY) || '';
+}
+
+function logout() {
+  sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+  location.reload();
 }
 
 async function carregarDados() {
   document.getElementById('last-update').textContent = 'Atualizando...';
   try {
-    const [evRes, usRes] = await Promise.all([
-      _sb.from('eventos').select('*').order('criado_em', { ascending: false }).limit(1000),
-      _sb.auth.admin.listUsers({ perPage: 200 })
-    ]);
-    if (evRes.error) throw evRes.error;
+    const res = await fetch('/api/admin-stats', {
+      headers: { 'Authorization': 'Bearer ' + getToken() }
+    });
 
-    const dados   = evRes.data || [];
-    const users   = usRes.data?.users || [];
+    if (res.status === 401) {
+      // Token inválido ou expirado — volta pra tela de login
+      sessionStorage.removeItem(TOKEN_STORAGE_KEY);
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('dashboard').style.display = 'none';
+      const errEl = document.getElementById('login-err');
+      errEl.textContent = 'Sessão expirada. Faça login novamente.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || ('HTTP ' + res.status));
+    }
+
+    const payload = await res.json();
+    const dados = payload.eventos || [];
+    const users = payload.users || [];
 
     renderStats(dados, users);
     renderChart(dados);
@@ -488,6 +535,15 @@ async function carregarDados() {
     document.getElementById('last-update').textContent = 'Erro: ' + e.message;
   }
 }
+
+// Auto-login se já tem token válido na sessão
+window.addEventListener('DOMContentLoaded', function() {
+  if (getToken()) {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    carregarDados();
+  }
+});
 
 function hoje() { return new Date().toISOString().split('T')[0]; }
 function diasAtras(n) {
