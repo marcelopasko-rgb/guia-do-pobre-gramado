@@ -354,10 +354,11 @@ body:has(#login-overlay:not(.hidden)) .overlay:not(#login-overlay) {
 }
 .app-header-sub{font-size:10px;color:var(--muted);font-weight:500;margin-top:1px;}
 .app-header-badge{
-  background:var(--red);color:white;font-size:9px;
+  background:linear-gradient(135deg,#a07008,#e8740c);
+  color:#000;font-size:9px;
   font-weight:800;padding:4px 10px;border-radius:100px;
   text-transform:uppercase;letter-spacing:1px;
-  box-shadow:0 2px 8px rgba(239,68,68,0.4);
+  box-shadow:0 2px 8px rgba(232,116,12,0.35);
 }
 
 /* ── MAIN SCROLL ── */
@@ -1085,7 +1086,7 @@ s{color:#555;font-weight:500;}
         <div class="app-header-sub">Gramado &amp; Canela · RS</div>
       </div>
     </div>
-    <div class="app-header-badge">FREE</div>
+    <div class="app-header-badge">MEMBRO</div>
   </div>
 
   <div class="toast" id="toast">Copiado!</div>
@@ -3461,10 +3462,18 @@ async function publishPost() {
     if (error) {
       showToast('Erro ao publicar: ' + (error.message || error.code || 'tente novamente'));
       console.error('publishPost error:', error);
+      track('post_publish_failed', {
+        erro_msg: error.message || null,
+        erro_code: error.code || null,
+        tem_foto: !!fotoUrl,
+        texto_length: texto.length,
+        tag: tag
+      });
       if (btn) { btn.disabled = false; btn.textContent = 'Publicar'; }
       return;
     }
     showToast('Post publicado! 🎉');
+    track('post_publish_success', { tem_foto: !!fotoUrl, tag: tag });
     // Recarrega o feed explicitamente (não depende só do realtime)
     await loadPosts();
   } else {
@@ -4168,14 +4177,23 @@ async function handleSendOtp() {
   var emailEl = document.getElementById('input-email');
   var email   = emailEl ? emailEl.value.trim().toLowerCase() : '';
 
-  if (!email) { showMsg('Digite seu e-mail.'); return; }
-  if (!email.includes('@') || !email.includes('.')) { showMsg('E-mail inválido.'); return; }
+  if (!email) {
+    showMsg('Digite seu e-mail.');
+    track('login_send_failed', { motivo: 'email_vazio' });
+    return;
+  }
+  if (!email.includes('@') || !email.includes('.')) {
+    showMsg('E-mail inválido.');
+    track('login_send_failed', { motivo: 'email_invalido' });
+    return;
+  }
 
   setLoading(true, 'login-cta-btn', 'Enviar link de acesso');
 
   if (!_supabase) {
     setLoading(false, 'login-cta-btn', 'Enviar link de acesso');
     showMsg('Erro de conexão. Tente novamente.');
+    track('login_send_failed', { motivo: 'supabase_indisponivel' });
     return;
   }
 
@@ -4200,15 +4218,27 @@ async function handleSendOtp() {
   setLoading(false, 'login-cta-btn', 'Enviar link de acesso');
 
   if (res.error) {
-    if (res.error.message && res.error.message.toLowerCase().includes('signups not allowed')) {
+    var errMsg = (res.error.message || '').toLowerCase();
+    var motivo = 'erro_desconhecido';
+    if (errMsg.includes('signups not allowed')) {
       showMsg('E-mail não encontrado. Verifique se usou o mesmo e-mail da compra.');
-    } else if (res.error.message && res.error.message.toLowerCase().includes('rate limit')) {
+      motivo = 'email_nao_cadastrado';
+    } else if (errMsg.includes('rate limit')) {
       showMsg('Muitas tentativas. Espere 60 segundos e tente de novo.');
+      motivo = 'rate_limit';
     } else {
       showMsg(res.error.message || 'Erro ao enviar código.');
     }
+    track('login_send_failed', {
+      motivo: motivo,
+      erro_msg: res.error.message || null,
+      erro_status: res.error.status || null,
+      email_dominio: email.split('@')[1] || null
+    });
     return;
   }
+
+  track('login_send_success', { email_dominio: email.split('@')[1] || null });
 
   // Registra o timestamp da solicitação pra diagnóstico no verifyOtp
   window._otpRequestedAt = Date.now();
@@ -4233,9 +4263,22 @@ async function handleVerifyOtp() {
   var token = otpEl ? otpEl.value.trim() : '';
   var email = window._otpEmail || '';
 
-  if (!token) { showMsg('Digite o código de 8 dígitos.'); return; }
-  if (token.length !== 8 || !/^\d{8}$/.test(token)) { showMsg('Código deve ter 8 dígitos.'); return; }
-  if (!email) { showMsg('Sessão expirou. Recomece o login.'); backToEmail(); return; }
+  if (!token) {
+    showMsg('Digite o código de 8 dígitos.');
+    track('login_verify_failed', { motivo: 'codigo_vazio' });
+    return;
+  }
+  if (token.length !== 8 || !/^\d{8}$/.test(token)) {
+    showMsg('Código deve ter 8 dígitos.');
+    track('login_verify_failed', { motivo: 'formato_invalido', token_length: token.length });
+    return;
+  }
+  if (!email) {
+    showMsg('Sessão expirou. Recomece o login.');
+    track('login_verify_failed', { motivo: 'sem_email_na_sessao' });
+    backToEmail();
+    return;
+  }
 
   setLoading(true, 'verify-cta-btn', 'Entrar');
 
@@ -4244,11 +4287,12 @@ async function handleVerifyOtp() {
   // Compare timestamps entre quando o código foi solicitado e quando você digitou.
   var dbgStart = Date.now();
   var dbgRequested = window._otpRequestedAt || null;
+  var dbgElapsedSec = dbgRequested ? Math.round((Date.now() - dbgRequested) / 1000) : null;
   console.log('[OTP DEBUG] Verificando código...', {
     email: email,
     tokenLength: token.length,
     requestedAt: dbgRequested ? new Date(dbgRequested).toISOString() : 'desconhecido',
-    elapsedSinceRequest: dbgRequested ? ((Date.now() - dbgRequested) / 1000).toFixed(1) + 's' : 'desconhecido',
+    elapsedSinceRequest: dbgRequested ? (dbgElapsedSec + 's') : 'desconhecido',
     nowAt: new Date(dbgStart).toISOString()
   });
 
@@ -4273,18 +4317,28 @@ async function handleVerifyOtp() {
   setLoading(false, 'verify-cta-btn', 'Entrar');
 
   if (res.error) {
-    if (res.error.message && res.error.message.toLowerCase().includes('expired')) {
+    var errMsg = (res.error.message || '').toLowerCase();
+    var motivo = 'erro_desconhecido';
+    if (errMsg.includes('expired')) {
       showMsg('Código expirado. Peça um novo código.');
-    } else if (res.error.message && res.error.message.toLowerCase().includes('invalid')) {
+      motivo = 'expirado';
+    } else if (errMsg.includes('invalid')) {
       showMsg('Código inválido. Verifique e tente de novo.');
+      motivo = 'codigo_invalido';
     } else {
       showMsg(res.error.message || 'Erro ao verificar código.');
     }
+    track('login_verify_failed', {
+      motivo: motivo,
+      erro_msg: res.error.message || null,
+      erro_status: res.error.status || null,
+      tempo_desde_solicitacao_seg: dbgElapsedSec
+    });
     return;
   }
 
   // Sucesso! O onAuthStateChange vai disparar e chamar onLoginSuccess.
-  // A sessão será salva no localStorage do contexto atual (PWA ou navegador).
+  track('login_verify_success', { tempo_desde_solicitacao_seg: dbgElapsedSec });
 }
 
 // ── VOLTAR PARA TELA DE EMAIL ─────────────────────────────────────────────
@@ -4425,7 +4479,7 @@ async function logoutConfirm() {
   if (chip) {
     var badge = document.createElement('div');
     badge.className = 'app-header-badge';
-    badge.textContent = 'BETA';
+    badge.textContent = 'MEMBRO';
     chip.replaceWith(badge);
   }
   showLoginOverlay();
