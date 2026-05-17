@@ -4074,8 +4074,39 @@ function hideSessionLoading() {
   if (!_supabase) { hideSessionLoading(); showLoginOverlay(); return; }
   try {
     var hash = window.location.hash;
+    var params = new URLSearchParams(window.location.search);
+    var tokenHash = params.get('token_hash');
+    var tokenType = params.get('type');
 
-    // Tem token na URL — magic link acabou de ser clicado
+    // PKCE flow: link do email traz ?token_hash=...&type=email
+    // (template novo configurado no Supabase Dashboard)
+    if (tokenHash && tokenType) {
+      try {
+        var vr = await _supabase.auth.verifyOtp({ token_hash: tokenHash, type: tokenType });
+        if (vr.error) throw vr.error;
+        if (vr.data && vr.data.user) {
+          hideSessionLoading();
+          onLoginSuccess(vr.data.user);
+          history.replaceState(null, '', window.location.pathname);
+          return;
+        }
+      } catch (err) {
+        console.error('Erro ao verificar token_hash:', err);
+        hideSessionLoading();
+        showLoginOverlay();
+        setTimeout(function() {
+          var msgEl = document.getElementById('login-msg');
+          if (msgEl) {
+            msgEl.textContent = 'Link expirado ou já usado. Solicite um novo código.';
+            msgEl.className = 'login-msg error';
+          }
+        }, 100);
+        history.replaceState(null, '', window.location.pathname);
+        return;
+      }
+    }
+
+    // Fluxo antigo (fallback): magic link com #access_token no hash
     if (hash && hash.includes('access_token')) {
       _supabase.auth.onAuthStateChange(function(event, session) {
         if (session && session.user) {
