@@ -4179,13 +4179,23 @@ async function handleSendOtp() {
     return;
   }
 
-  // signInWithOtp sem emailRedirectTo: o Supabase envia o código OTP (8 dígitos)
-  // (sem emailRedirectTo o link no email não fica clicável, forçando o usuário a usar o código)
+  // signInWithOtp COM emailRedirectTo: ativa o fluxo PKCE, no qual
+  // {{ .Token }} (código 8 dígitos) e {{ .TokenHash }} (hash do link) ficam
+  // INDEPENDENTES no banco. Clicar no link NÃO invalida o código.
+  // O emailRedirectTo precisa estar nas "Redirect URLs" do Supabase Dashboard
+  // (Authentication → URL Configuration).
+  console.log('[OTP DEBUG] Solicitando código para:', email);
   var res = await _supabase.auth.signInWithOtp({
     email: email,
     options: {
-      shouldCreateUser: false
+      shouldCreateUser: false,
+      emailRedirectTo: window.location.origin + window.location.pathname
     }
+  });
+
+  console.log('[OTP DEBUG] Resposta da solicitação:', {
+    success: !res.error,
+    error: res.error ? res.error.message : null
   });
 
   setLoading(false, 'login-cta-btn', 'Enviar link de acesso');
@@ -4200,6 +4210,9 @@ async function handleSendOtp() {
     }
     return;
   }
+
+  // Registra o timestamp da solicitação pra diagnóstico no verifyOtp
+  window._otpRequestedAt = Date.now();
 
   // Mostra a etapa do código
   document.getElementById('step-email').style.display = 'none';
@@ -4227,10 +4240,35 @@ async function handleVerifyOtp() {
 
   setLoading(true, 'verify-cta-btn', 'Entrar');
 
+  // ── DIAGNÓSTICO DE LOGIN ──────────────────────────────────────────────
+  // Loga tudo no console pra investigar problemas intermitentes de "código expirado".
+  // Compare timestamps entre quando o código foi solicitado e quando você digitou.
+  var dbgStart = Date.now();
+  var dbgRequested = window._otpRequestedAt || null;
+  console.log('[OTP DEBUG] Verificando código...', {
+    email: email,
+    tokenLength: token.length,
+    requestedAt: dbgRequested ? new Date(dbgRequested).toISOString() : 'desconhecido',
+    elapsedSinceRequest: dbgRequested ? ((Date.now() - dbgRequested) / 1000).toFixed(1) + 's' : 'desconhecido',
+    nowAt: new Date(dbgStart).toISOString()
+  });
+
   var res = await _supabase.auth.verifyOtp({
     email: email,
     token: token,
     type: 'email'
+  });
+
+  console.log('[OTP DEBUG] Resposta do Supabase:', {
+    elapsed: (Date.now() - dbgStart) + 'ms',
+    success: !res.error,
+    error: res.error ? {
+      message: res.error.message,
+      status: res.error.status,
+      code: res.error.code || res.error.error_code || null,
+      name: res.error.name
+    } : null,
+    user: res.data && res.data.user ? { id: res.data.user.id, email: res.data.user.email } : null
   });
 
   setLoading(false, 'verify-cta-btn', 'Entrar');
