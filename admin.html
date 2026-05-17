@@ -150,6 +150,10 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 .badge-restaurante{background:rgba(63,185,80,0.15);color:var(--green);}
 .badge-atracao{background:rgba(88,166,255,0.15);color:var(--blue);}
 .badge-outro{background:rgba(139,148,158,0.15);color:var(--muted);}
+.badge-login-ok{background:rgba(63,185,80,0.15);color:var(--green);}
+.badge-login-fail{background:rgba(248,81,73,0.15);color:var(--red);}
+.badge-post-ok{background:rgba(57,211,83,0.15);color:var(--teal);}
+.badge-post-fail{background:rgba(248,81,73,0.15);color:var(--red);}
 .feed-nome{flex:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .feed-time{color:var(--muted);font-size:10px;flex-shrink:0;}
 
@@ -295,6 +299,66 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       </div>
     </div>
 
+    <!-- FUNIL DE LOGIN -->
+    <div class="section">
+      <div class="section-title">Funil de login</div>
+      <div class="stats-grid">
+        <div class="stat-card blue">
+          <div class="stat-label">Códigos solicitados</div>
+          <div class="stat-value blue" id="stat-login-send">—</div>
+          <div class="stat-sub" id="stat-login-send-sub">—</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Logins concluídos</div>
+          <div class="stat-value green" id="stat-login-success">—</div>
+          <div class="stat-sub" id="stat-login-success-sub">—</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-label">Taxa de sucesso</div>
+          <div class="stat-value yellow" id="stat-login-taxa">—</div>
+          <div class="stat-sub">verificações / solicitações</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Códigos rejeitados</div>
+          <div class="stat-value red" id="stat-login-falhas">—</div>
+          <div class="stat-sub" id="stat-login-falhas-sub">—</div>
+        </div>
+      </div>
+
+      <div class="two-col" style="margin-top:16px;">
+        <div class="rank-card">
+          <div class="rank-title">❌ Motivos de falha</div>
+          <div id="rank-falhas-login"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+        </div>
+        <div class="rank-card">
+          <div class="rank-title">⏱️ Tempo até digitar o código</div>
+          <div id="rank-tempo-otp"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ENGAJAMENTO COMUNIDADE -->
+    <div class="section">
+      <div class="section-title">Comunidade</div>
+      <div class="stats-grid">
+        <div class="stat-card green">
+          <div class="stat-label">Posts publicados</div>
+          <div class="stat-value green" id="stat-posts-ok">—</div>
+          <div class="stat-sub" id="stat-posts-ok-sub">todos os tempos</div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-label">Falhas de publicação</div>
+          <div class="stat-value red" id="stat-posts-fail">—</div>
+          <div class="stat-sub" id="stat-posts-fail-sub">—</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-label">Posts com foto</div>
+          <div class="stat-value yellow" id="stat-posts-foto">—</div>
+          <div class="stat-sub" id="stat-posts-foto-sub">—</div>
+        </div>
+      </div>
+    </div>
+
     <!-- HORÁRIOS DE PICO -->
     <div class="section">
       <div class="section-title">Horários de pico</div>
@@ -408,6 +472,8 @@ async function carregarDados() {
     renderStats(dados, users);
     renderChart(dados);
     renderRankings(dados);
+    renderFunilLogin(dados);
+    renderComunidadeStats(dados);
     renderPico(dados);
     renderTopUsuarios(dados, users);
     renderSemCliques(dados);
@@ -523,6 +589,112 @@ function buildRanking(itens, cor) {
     </div>`).join('');
 }
 
+/* ── FUNIL DE LOGIN ── */
+function renderFunilLogin(dados) {
+  const sends      = dados.filter(e => e.evento === 'login_send_success');
+  const sendsFail  = dados.filter(e => e.evento === 'login_send_failed');
+  const verifies   = dados.filter(e => e.evento === 'login_verify_success');
+  const verifyFail = dados.filter(e => e.evento === 'login_verify_failed');
+
+  // Stats principais
+  const totalSends    = sends.length;
+  const totalVerifies = verifies.length;
+  const totalFalhas   = verifyFail.length;
+  const taxa = totalSends > 0 ? Math.round((totalVerifies / totalSends) * 100) : 0;
+
+  document.getElementById('stat-login-send').textContent     = totalSends;
+  document.getElementById('stat-login-send-sub').textContent = sendsFail.length + ' falhas no envio';
+  document.getElementById('stat-login-success').textContent  = totalVerifies;
+  document.getElementById('stat-login-success-sub').textContent = 'códigos verificados';
+  document.getElementById('stat-login-taxa').textContent     = taxa + '%';
+  document.getElementById('stat-login-falhas').textContent   = totalFalhas;
+  document.getElementById('stat-login-falhas-sub').textContent = totalSends > 0
+    ? Math.round((totalFalhas / totalSends) * 100) + '% das solicitações'
+    : '—';
+
+  // Ranking de motivos de falha
+  const motivos = {};
+  [...sendsFail, ...verifyFail].forEach(e => {
+    const m = e.payload?.motivo || 'desconhecido';
+    motivos[m] = (motivos[m] || 0) + 1;
+  });
+  const motivosLabels = {
+    'email_vazio':           'E-mail vazio',
+    'email_invalido':        'E-mail inválido',
+    'supabase_indisponivel': 'Supabase indisponível',
+    'email_nao_cadastrado':  'E-mail não cadastrado',
+    'rate_limit':            'Rate limit (muitas tentativas)',
+    'erro_desconhecido':     'Erro desconhecido',
+    'codigo_vazio':          'Código vazio',
+    'formato_invalido':      'Formato do código inválido',
+    'sem_email_na_sessao':   'Sessão expirou',
+    'expirado':              'Código expirado',
+    'codigo_invalido':       'Código incorreto',
+  };
+  const motivosOrdenados = Object.entries(motivos).sort((a,b) => b[1]-a[1]);
+  if (!motivosOrdenados.length) {
+    document.getElementById('rank-falhas-login').innerHTML = '<div class="empty" style="color:var(--green);">✓ Sem falhas registradas.</div>';
+  } else {
+    const max = motivosOrdenados[0][1];
+    document.getElementById('rank-falhas-login').innerHTML = motivosOrdenados.map(([motivo, count], i) => `
+      <div class="rank-item">
+        <span class="rank-num">${i+1}</span>
+        <div class="rank-bar-wrap">
+          <div class="rank-name">${motivosLabels[motivo] || motivo}</div>
+          <div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${Math.round(count/max*100)}%;background:var(--red);"></div></div>
+        </div>
+        <span class="rank-count" style="color:var(--red);">${count}</span>
+      </div>`).join('');
+  }
+
+  // Distribuição de tempo até verificar
+  const faixas = { '0-30s': 0, '30-60s': 0, '1-2min': 0, '2-5min': 0, '5-15min': 0, '>15min': 0 };
+  verifies.forEach(e => {
+    const t = parseInt(e.payload?.tempo_desde_solicitacao_seg, 10);
+    if (isNaN(t)) return;
+    if (t < 30) faixas['0-30s']++;
+    else if (t < 60) faixas['30-60s']++;
+    else if (t < 120) faixas['1-2min']++;
+    else if (t < 300) faixas['2-5min']++;
+    else if (t < 900) faixas['5-15min']++;
+    else faixas['>15min']++;
+  });
+  const totalTempo = Object.values(faixas).reduce((a,b) => a+b, 0);
+  if (totalTempo === 0) {
+    document.getElementById('rank-tempo-otp').innerHTML = '<div class="empty">Nenhum login verificado ainda.</div>';
+  } else {
+    const maxT = Math.max(...Object.values(faixas));
+    document.getElementById('rank-tempo-otp').innerHTML = Object.entries(faixas).map(([faixa, count], i) => `
+      <div class="rank-item">
+        <span class="rank-num">${i+1}</span>
+        <div class="rank-bar-wrap">
+          <div class="rank-name">${faixa}</div>
+          <div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${maxT > 0 ? Math.round(count/maxT*100) : 0}%;background:var(--yellow);"></div></div>
+        </div>
+        <span class="rank-count" style="color:var(--yellow);">${count}</span>
+      </div>`).join('');
+  }
+}
+
+/* ── COMUNIDADE STATS ── */
+function renderComunidadeStats(dados) {
+  const ok    = dados.filter(e => e.evento === 'post_publish_success');
+  const fail  = dados.filter(e => e.evento === 'post_publish_failed');
+  const comFoto = ok.filter(e => e.payload?.tem_foto === true).length;
+  const totalOk = ok.length;
+  const totalFail = fail.length;
+
+  document.getElementById('stat-posts-ok').textContent     = totalOk;
+  document.getElementById('stat-posts-fail').textContent   = totalFail;
+  document.getElementById('stat-posts-fail-sub').textContent = totalOk + totalFail > 0
+    ? Math.round((totalFail / (totalOk + totalFail)) * 100) + '% das tentativas'
+    : '—';
+  document.getElementById('stat-posts-foto').textContent   = comFoto;
+  document.getElementById('stat-posts-foto-sub').textContent = totalOk > 0
+    ? Math.round((comFoto / totalOk) * 100) + '% dos posts'
+    : '—';
+}
+
 /* ── PICO DE HORÁRIOS ── */
 function renderPico(dados) {
   const contagem = Array(24).fill(0);
@@ -621,17 +793,28 @@ function renderFeed(dados) {
   const recentes = dados.slice(0, 100);
   if (!recentes.length) { document.getElementById('feed-eventos').innerHTML = '<div class="empty">Nenhum evento ainda.</div>'; return; }
   document.getElementById('feed-eventos').innerHTML = recentes.map(e => {
-    const badge = {
-      clique_parque:      '<span class="feed-badge badge-parque">Parque</span>',
-      clique_restaurante: '<span class="feed-badge badge-restaurante">Restaurante</span>',
-      clique_atracao:     '<span class="feed-badge badge-atracao">Atração</span>',
-    }[e.evento] || `<span class="feed-badge badge-outro">${e.evento||'?'}</span>`;
-    const nome = e.payload?.nome || '—';
+    const badges = {
+      clique_parque:        '<span class="feed-badge badge-parque">Parque</span>',
+      clique_restaurante:   '<span class="feed-badge badge-restaurante">Restaurante</span>',
+      clique_atracao:       '<span class="feed-badge badge-atracao">Atração</span>',
+      login_send_success:   '<span class="feed-badge badge-login-ok">Login: código enviado</span>',
+      login_send_failed:    '<span class="feed-badge badge-login-fail">Login: envio falhou</span>',
+      login_verify_success: '<span class="feed-badge badge-login-ok">Login: ok</span>',
+      login_verify_failed:  '<span class="feed-badge badge-login-fail">Login: código rejeitado</span>',
+      post_publish_success: '<span class="feed-badge badge-post-ok">Post publicado</span>',
+      post_publish_failed:  '<span class="feed-badge badge-post-fail">Post: falhou</span>',
+    };
+    const badge = badges[e.evento] || `<span class="feed-badge badge-outro">${e.evento||'?'}</span>`;
+    // Detalhe contextual: clique tem 'nome'; login tem 'motivo'; post tem 'tag'
+    let detalhe = e.payload?.nome || e.payload?.motivo || e.payload?.tag || '—';
+    if (e.evento === 'login_verify_success' && e.payload?.tempo_desde_solicitacao_seg != null) {
+      detalhe = e.payload.tempo_desde_solicitacao_seg + 's após solicitar';
+    }
     const hora = new Date(e.criado_em).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     return `
       <div class="feed-item">
         ${badge}
-        <span class="feed-nome">${nome}</span>
+        <span class="feed-nome">${detalhe}</span>
         <span class="feed-time">${hora}</span>
       </div>`;
   }).join('');
