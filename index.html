@@ -4179,17 +4179,16 @@ async function handleSendOtp() {
     return;
   }
 
-  // signInWithOtp COM emailRedirectTo: ativa o fluxo PKCE, no qual
-  // {{ .Token }} (código 8 dígitos) e {{ .TokenHash }} (hash do link) ficam
-  // INDEPENDENTES no banco. Clicar no link NÃO invalida o código.
-  // O emailRedirectTo precisa estar nas "Redirect URLs" do Supabase Dashboard
-  // (Authentication → URL Configuration).
+  // signInWithOtp SEM emailRedirectTo (fluxo implicit).
+  // O template do email agora só envia o código de 8 dígitos, sem link clicável.
+  // Como não há link, não há vetor de pré-clique por antivírus/preview de email,
+  // e o fluxo implicit funciona perfeitamente em PWA instalada (sem dor de
+  // cross-context que o PKCE traz).
   console.log('[OTP DEBUG] Solicitando código para:', email);
   var res = await _supabase.auth.signInWithOtp({
     email: email,
     options: {
-      shouldCreateUser: false,
-      emailRedirectTo: window.location.origin + window.location.pathname
+      shouldCreateUser: false
     }
   });
 
