@@ -1,6 +1,6 @@
 
 /* ═══ ICON SYSTEM — SVG RICO + GRADIENTE POR CATEGORIA ═══ */
-
+ 
 // Cada atração tem: svg path data, cor de fundo (gradiente), cor do stroke
 const ATTR_ICONS = {
   // NEVE / FRIO
