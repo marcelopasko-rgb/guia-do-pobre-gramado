@@ -459,6 +459,45 @@ function buildPromocoes(){
   `;
 }
 
+/* ═══ CONSULTA DE COMPRAS DO USUÁRIO ═══ */
+let _minhasCompras = []; // cache local: ['roteiro_pdf', 'restaurantes_secretos']
+let _comprasCarregadas = false;
+
+async function verificarCompras() {
+  try {
+    // Pega o email do usuário logado (do Supabase Auth)
+    const { data: { user } } = await supabaseClient.auth.getUser();
+    if (!user || !user.email) {
+      _minhasCompras = [];
+      _comprasCarregadas = true;
+      return [];
+    }
+
+    const res = await fetch(`/api/minhas-compras?email=${encodeURIComponent(user.email)}`);
+    if (!res.ok) {
+      console.warn('[verificarCompras] Falha:', res.status);
+      _minhasCompras = [];
+      _comprasCarregadas = true;
+      return [];
+    }
+
+    const data = await res.json();
+    _minhasCompras = data.compras || [];
+    _comprasCarregadas = true;
+    console.log('[verificarCompras] Compras do usuário:', _minhasCompras);
+    return _minhasCompras;
+  } catch (err) {
+    console.error('[verificarCompras] Erro:', err);
+    _minhasCompras = [];
+    _comprasCarregadas = true;
+    return [];
+  }
+}
+
+function jaComprou(produto) {
+  return _minhasCompras.includes(produto);
+}
+
 /* ═══ BÔNUS DO POBRE (UPSELLS) ═══ */
 const bonusUpsells = [
   {
@@ -497,14 +536,82 @@ function bonusIconSVG(tipo) {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
 }
 
-function buildBonus() {
+async function buildBonus() {
   const body = document.getElementById('bonus-body');
+
+  // Mostra estado de "carregando" enquanto consulta as compras
+  body.innerHTML = `
+    <div style="padding:40px 18px;text-align:center;color:#71717a;font-size:13px;">
+      <div style="width:32px;height:32px;border:2px solid #2a2a2a;border-top-color:var(--yellow);border-radius:50%;margin:0 auto 12px;animation:spin 0.8s linear infinite;"></div>
+      Carregando seus bônus...
+    </div>
+    <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+  `;
+
+  // Garante que sabemos quais compras o usuário tem
+  if (!_comprasCarregadas) {
+    await verificarCompras();
+  }
+
+  // Filtra: se já comprou um item individual, esconde o combo
+  // (não faz sentido oferecer combo pra quem já tem parte)
+  const jaTemAlgo = jaComprou('roteiro_pdf') || jaComprou('restaurantes_secretos');
+  const itensVisiveis = bonusUpsells.filter(item => {
+    if (item.titulo.toLowerCase().includes('combo') && jaTemAlgo) return false;
+    return true;
+  });
+
   body.innerHTML = `
     <div style="padding:14px 18px 12px;background:#1a1500;border-bottom:1px solid #2a2200;border-top:1px solid #2a2200;">
       <p style="font-size:11px;color:#f0c020;font-weight:700;line-height:1.5;">✨ Bônus exclusivos pra quem quer economizar de verdade em Gramado.</p>
     </div>
     <div style="padding:14px;display:flex;flex-direction:column;gap:12px;">
-      ${bonusUpsells.map(item => `
+      ${itensVisiveis.map(item => {
+        // Decidir qual botão mostrar baseado no que o usuário já comprou
+        let botaoHTML = '';
+
+        // Item 1: Roteiro PDF
+        if (item.titulo.includes('Roteiro Versão PDF')) {
+          if (jaComprou('roteiro_pdf')) {
+            botaoHTML = `
+              <button class="bonus-btn bonus-btn-liberado" onclick="baixarRoteiroPDF()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Baixar meu Roteiro PDF
+              </button>`;
+          } else {
+            botaoHTML = `
+              <a href="${item.url}" target="_blank" rel="noopener" class="bonus-btn" onclick="track && track('bonus_click',{item:'roteiro_pdf'});">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                Quero esse bônus
+              </a>`;
+          }
+        }
+        // Item 2: Restaurantes Secretos
+        else if (item.titulo.includes('Restaurantes Secretos')) {
+          if (jaComprou('restaurantes_secretos')) {
+            botaoHTML = `
+              <button class="bonus-btn bonus-btn-liberado" onclick="openOverlay('overlay-restaurantes-secretos')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                Ver restaurantes secretos
+              </button>`;
+          } else {
+            botaoHTML = `
+              <a href="${item.url}" target="_blank" rel="noopener" class="bonus-btn" onclick="track && track('bonus_click',{item:'restaurantes_secretos'});">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                Quero esse bônus
+              </a>`;
+          }
+        }
+        // Item 3: Combo (só aparece se ainda não comprou nada)
+        else {
+          botaoHTML = `
+            <a href="${item.url}" target="_blank" rel="noopener" class="bonus-btn" onclick="track && track('bonus_click',{item:'combo'});">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Quero esse bônus
+            </a>`;
+        }
+
+        return `
         <div class="bonus-card${item.destaque ? ' bonus-card-destaque' : ''}">
           ${item.destaque ? '<div class="bonus-badge">MAIS ESCOLHIDO</div>' : ''}
           <div class="bonus-card-top">
@@ -519,18 +626,20 @@ function buildBonus() {
               ${item.de ? `<span class="bonus-preco-de"><s>${item.de}</s></span>` : ''}
               <span class="bonus-preco-por">${item.preco}</span>
             </div>
-            <a href="${item.url}" target="_blank" rel="noopener" class="bonus-btn" onclick="track && track('bonus_click',{item:'${item.titulo.replace(/'/g,"\\'")}'});">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              Quero esse bônus
-            </a>
+            ${botaoHTML}
           </div>
         </div>
-      `).join('')}
+      `}).join('')}
     </div>
     <div style="padding:6px 18px 24px;">
-      <p style="font-size:10.5px;color:#71717a;line-height:1.6;text-align:center;">🔒 Pagamento seguro via Hotmart · Acesso imediato após a compra</p>
+      <p style="font-size:10.5px;color:#71717a;line-height:1.6;text-align:center;">🔒 Pagamento seguro via Kiwify · Acesso imediato após a compra</p>
     </div>
   `;
+}
+
+// Placeholder das funções que vamos criar nas próximas etapas
+function baixarRoteiroPDF() {
+  showToast('Gerando seu PDF... (em breve!)');
 }
 
 /* ═══ RESTAURANTES ═══ */
