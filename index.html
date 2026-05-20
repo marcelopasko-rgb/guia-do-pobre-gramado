@@ -1245,7 +1245,7 @@ s{color:#555;font-weight:500;}
       </div>
 
       <!-- Bônus do Pobre -->
-      <div class="icon-btn" onclick="showToast('Bônus do pobre chegando!')">
+      <div class="icon-btn" onclick="gerarRoteiroPDF()">
         <div class="icon-circle c-gold">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="10" width="18" height="11" rx="2"/>
@@ -4560,6 +4560,436 @@ function pwaSheetDismiss() {
 // Gatilhos de momento certo — chamados em pontos de alto engajamento
 function pwaTrigger() {
   setTimeout(pwaShowSheet, 800); // pequeno delay para não interromper a ação
+}
+
+// ══════════════════════════════════════════
+//  GERAR ROTEIRO PDF — Bônus do Pobre
+// ══════════════════════════════════════════
+async function gerarRoteiroPDF() {
+  // Verifica se o usuário está logado
+  if (!currentUser) {
+    showToast('Faça login para gerar o PDF do seu roteiro 💛');
+    return;
+  }
+
+  showToast('Gerando seu roteiro em PDF... ⏳');
+
+  // Carrega jsPDF dinamicamente (sem poluir o bundle principal)
+  if (!window.jspdf) {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  // ── Paleta de cores ──────────────────────────────────────
+  const COR_BG       = [13, 13, 15];       // #0d0d0f
+  const COR_CARD     = [28, 28, 31];       // #1c1c1f
+  const COR_YELLOW   = [240, 180, 41];     // #f0b429
+  const COR_ORANGE   = [232, 116, 12];     // #e8740c
+  const COR_GREEN    = [34, 197, 94];      // #22c55e
+  const COR_MUTED    = [113, 113, 122];    // #71717a
+  const COR_TEXT     = [244, 244, 245];    // #f4f4f5
+  const COR_BORDER   = [39, 39, 42];       // #27272a
+  const COR_FREE_BG  = [20, 40, 20];
+  const COR_PAID_BG  = [40, 20, 10];
+
+  const PAGE_W  = 210;
+  const PAGE_H  = 297;
+  const MARGIN  = 14;
+  const CONTENT_W = PAGE_W - MARGIN * 2;
+
+  // Coleta os dados reais do roteiro renderizado no DOM
+  function coletarDadosRoteiro() {
+    const data = [];
+    const dayBlocks = document.querySelectorAll('#roteiro-content .day-block, #roteiro-body .day-block');
+    
+    if (dayBlocks.length === 0) {
+      // Fallback para roteiroData padrão
+      return roteiroData;
+    }
+
+    dayBlocks.forEach((block, idx) => {
+      const numEl   = block.querySelector('.day-num');
+      const titleEl = block.querySelector('.day-info h4');
+      const subEl   = block.querySelector('.day-info p');
+      const tipEl   = block.querySelector('.day-tip-text');
+      const items   = block.querySelectorAll('.attraction-item');
+
+      const diaNum = numEl ? (parseInt(numEl.textContent) || idx + 1) : idx + 1;
+      const titulo = titleEl ? titleEl.textContent.trim() : 'Dia ' + diaNum;
+      const sub    = subEl   ? subEl.textContent.trim()   : '';
+      const tip    = tipEl   ? tipEl.textContent.replace('Dica do pobre:', '').trim() : '';
+
+      const atr = [];
+      items.forEach(item => {
+        const nameEl  = item.querySelector('h5');
+        const descEl  = item.querySelector('p');
+        const priceEl = item.querySelector('.attr-price');
+        const isFree  = priceEl ? priceEl.classList.contains('free') : false;
+        const discEl  = item.querySelector('.btn-roteiro-desconto');
+
+        atr.push({
+          n:    nameEl  ? nameEl.textContent.trim()  : '',
+          d:    descEl  ? descEl.textContent.trim()  : '',
+          v:    priceEl ? priceEl.textContent.trim()  : '',
+          free: isFree,
+          link: discEl  ? discEl.getAttribute('href') : null,
+        });
+      });
+
+      data.push({ dia: diaNum, titulo, sub, atr, tip });
+    });
+
+    return data;
+  }
+
+  // ── Helpers de desenho ───────────────────────────────────
+  let curY = 0;
+  let pageNum = 1;
+
+  function novaReferencia() { curY = 0; }
+
+  function checarNovaPagina(alturaNeeded) {
+    if (curY + alturaNeeded > PAGE_H - 10) {
+      rodape();
+      doc.addPage();
+      pageNum++;
+      fundoPagina();
+      curY = MARGIN;
+    }
+  }
+
+  function fundoPagina() {
+    doc.setFillColor(...COR_BG);
+    doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
+  }
+
+  function rodape() {
+    doc.setFillColor(...COR_BG);
+    doc.rect(0, PAGE_H - 10, PAGE_W, 10, 'F');
+    doc.setTextColor(...COR_MUTED);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text('guiadopobre.com  •  Gramado sem gastar uma fortuna 💛', PAGE_W / 2, PAGE_H - 3.5, { align: 'center' });
+    doc.text('Pág. ' + pageNum, PAGE_W - MARGIN, PAGE_H - 3.5, { align: 'right' });
+  }
+
+  function wrapText(text, maxWidth, fontSize) {
+    doc.setFontSize(fontSize);
+    return doc.splitTextToSize(text, maxWidth);
+  }
+
+  // ── CAPA ─────────────────────────────────────────────────
+  fundoPagina();
+  curY = 0;
+
+  // Gradiente de topo simulado com retângulos
+  for (let i = 0; i < 60; i++) {
+    const alpha = Math.round(255 * (1 - i / 60));
+    doc.setFillColor(232, 116, 12);
+    doc.setGState(new doc.GState({ opacity: (1 - i / 60) * 0.18 }));
+    doc.rect(0, i, PAGE_W, 1, 'F');
+  }
+  doc.setGState(new doc.GState({ opacity: 1 }));
+
+  // Ícone / logo pill
+  curY = 32;
+  doc.setFillColor(...COR_CARD);
+  doc.roundedRect(PAGE_W / 2 - 22, curY, 44, 14, 4, 4, 'F');
+  doc.setTextColor(...COR_YELLOW);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('🧭 GUIA DO POBRE', PAGE_W / 2, curY + 9, { align: 'center' });
+
+  // Título principal
+  curY += 22;
+  doc.setTextColor(...COR_TEXT);
+  doc.setFontSize(26);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Roteiro', PAGE_W / 2, curY, { align: 'center' });
+  curY += 10;
+  doc.setTextColor(...COR_YELLOW);
+  doc.setFontSize(26);
+  doc.text('Gramado & Canela', PAGE_W / 2, curY, { align: 'center' });
+
+  // Subtítulo
+  curY += 9;
+  doc.setTextColor(...COR_MUTED);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+
+  // Dias da viagem
+  const dadosPDF = coletarDadosRoteiro();
+  const totalDias = dadosPDF.length;
+  const nomeUser = currentUser.user_metadata?.display_name
+    || currentUser.user_metadata?.full_name
+    || currentUser.email?.split('@')[0]
+    || 'Viajante';
+
+  doc.text('Roteiro personalizado para ' + nomeUser + '  •  ' + totalDias + ' dia' + (totalDias > 1 ? 's' : '') + ' de viagem', PAGE_W / 2, curY, { align: 'center' });
+
+  // Linha divisória decorativa
+  curY += 12;
+  doc.setDrawColor(...COR_BORDER);
+  doc.setLineWidth(0.3);
+  doc.line(MARGIN + 20, curY, PAGE_W - MARGIN - 20, curY);
+
+  // Badge "Economize com descontos"
+  curY += 10;
+  doc.setFillColor(20, 40, 20);
+  doc.roundedRect(PAGE_W / 2 - 45, curY - 5, 90, 12, 3, 3, 'F');
+  doc.setDrawColor(...COR_GREEN);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(PAGE_W / 2 - 45, curY - 5, 90, 12, 3, 3, 'S');
+  doc.setTextColor(...COR_GREEN);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text('✓  Links de desconto incluídos neste roteiro', PAGE_W / 2, curY + 2.8, { align: 'center' });
+
+  // Preview dos dias na capa
+  curY += 22;
+  const colW = (CONTENT_W - 4) / 2;
+  let colX = MARGIN;
+  let colToggle = 0;
+  let colStartY = curY;
+  let colRightY = curY;
+
+  dadosPDF.forEach((dia, i) => {
+    const targetX = colToggle === 0 ? MARGIN : MARGIN + colW + 4;
+    const targetY = colToggle === 0 ? colStartY : colRightY;
+
+    doc.setFillColor(...COR_CARD);
+    doc.roundedRect(targetX, targetY, colW, 18, 3, 3, 'F');
+
+    doc.setTextColor(...COR_YELLOW);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DIA ' + dia.dia, targetX + 4, targetY + 6);
+
+    const tituloLines = wrapText(dia.titulo, colW - 8, 8);
+    doc.setTextColor(...COR_TEXT);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(tituloLines[0], targetX + 4, targetY + 12);
+
+    doc.setTextColor(...COR_MUTED);
+    doc.setFontSize(6.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(dia.atr.length + ' atrações', targetX + 4, targetY + 17);
+
+    if (colToggle === 0) {
+      colStartY += 22;
+      colToggle = 1;
+    } else {
+      colRightY += 22;
+      colToggle = 0;
+    }
+  });
+
+  curY = Math.max(colStartY, colRightY) + 4;
+
+  // Rodapé da capa
+  rodape();
+
+  // ── PÁGINAS DOS DIAS ─────────────────────────────────────
+  dadosPDF.forEach((dia) => {
+    doc.addPage();
+    pageNum++;
+    fundoPagina();
+    curY = MARGIN;
+
+    // Header do dia
+    doc.setFillColor(...COR_CARD);
+    doc.roundedRect(MARGIN, curY, CONTENT_W, 22, 4, 4, 'F');
+
+    // Número do dia
+    doc.setFillColor(...COR_YELLOW);
+    doc.roundedRect(MARGIN + 4, curY + 4, 14, 14, 3, 3, 'F');
+    doc.setTextColor(...COR_BG);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(dia.dia), MARGIN + 11, curY + 13, { align: 'center' });
+
+    // Título e sub
+    doc.setTextColor(...COR_TEXT);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text(dia.titulo, MARGIN + 22, curY + 10);
+
+    doc.setTextColor(...COR_MUTED);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(dia.sub || '', MARGIN + 22, curY + 17);
+
+    curY += 28;
+
+    // Atrações do dia
+    dia.atr.forEach((a, j) => {
+      const linhasDesc = wrapText(a.d || '', CONTENT_W - 30, 7.5);
+      const altCard = 8 + linhasDesc.length * 4 + (a.link ? 7 : 0) + 6;
+
+      checarNovaPagina(altCard + 4);
+
+      doc.setFillColor(a.free ? COR_FREE_BG : COR_PAID_BG);
+      doc.roundedRect(MARGIN, curY, CONTENT_W, altCard, 3, 3, 'F');
+
+      // Número do item
+      doc.setFillColor(a.free ? COR_GREEN : COR_ORANGE);
+      doc.circle(MARGIN + 7, curY + 7, 4.5, 'F');
+      doc.setTextColor(...COR_BG);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(j + 1), MARGIN + 7, curY + 9, { align: 'center' });
+
+      // Nome da atração
+      doc.setTextColor(...COR_TEXT);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      const nomeLines = wrapText(a.n, CONTENT_W - 34, 9);
+      doc.text(nomeLines[0], MARGIN + 15, curY + 7);
+
+      // Badge preço
+      const priceColor = a.free ? COR_GREEN : COR_ORANGE;
+      doc.setTextColor(...priceColor);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'bold');
+      const priceText = a.v || (a.free ? 'Grátis' : '');
+      if (priceText) {
+        doc.text(priceText, PAGE_W - MARGIN - 4, curY + 7, { align: 'right' });
+      }
+
+      // Descrição/horário
+      doc.setTextColor(...COR_MUTED);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'normal');
+      let descY = curY + 12;
+      linhasDesc.forEach(linha => {
+        doc.text(linha, MARGIN + 15, descY);
+        descY += 4;
+      });
+
+      // Link de desconto
+      if (a.link) {
+        doc.setFillColor(20, 50, 20);
+        doc.roundedRect(MARGIN + 15, descY, CONTENT_W - 19, 5.5, 1.5, 1.5, 'F');
+        doc.setTextColor(...COR_GREEN);
+        doc.setFontSize(6.5);
+        doc.setFont('helvetica', 'bold');
+        doc.text('🎟  Comprar com desconto → ' + a.link, MARGIN + 17, descY + 3.8);
+        descY += 7;
+      }
+
+      curY += altCard + 3;
+    });
+
+    // Dica do pobre
+    if (dia.tip) {
+      const tipLines = wrapText(dia.tip, CONTENT_W - 20, 8);
+      const altTip = 10 + tipLines.length * 4.5;
+      checarNovaPagina(altTip + 4);
+
+      doc.setFillColor(15, 30, 15);
+      doc.roundedRect(MARGIN, curY, CONTENT_W, altTip, 3, 3, 'F');
+      doc.setDrawColor(...COR_GREEN);
+      doc.setLineWidth(0.6);
+      doc.line(MARGIN + 3, curY + 3, MARGIN + 3, curY + altTip - 3);
+
+      doc.setTextColor(...COR_GREEN);
+      doc.setFontSize(7.5);
+      doc.setFont('helvetica', 'bold');
+      doc.text('💡 Dica do Pobre:', MARGIN + 8, curY + 7);
+
+      doc.setTextColor(180, 220, 180);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      let tipY = curY + 12;
+      tipLines.forEach(l => { doc.text(l, MARGIN + 8, tipY); tipY += 4.5; });
+
+      curY += altTip + 4;
+    }
+
+    rodape();
+  });
+
+  // ── PÁGINA FINAL — Dicas Gerais ──────────────────────────
+  doc.addPage();
+  pageNum++;
+  fundoPagina();
+  curY = MARGIN;
+
+  doc.setFillColor(...COR_CARD);
+  doc.roundedRect(MARGIN, curY, CONTENT_W, 18, 4, 4, 'F');
+  doc.setTextColor(...COR_GREEN);
+  doc.setFontSize(13);
+  doc.setFont('helvetica', 'bold');
+  doc.text('💡 Dicas do Pobre para Gramado', MARGIN + 6, curY + 12);
+  curY += 24;
+
+  const dicasGerais = [
+    { emoji: '🧥', titulo: 'Roupa', texto: 'Sempre leve um casaco, mesmo no verão. O frio aparece do nada em Gramado — e casaco na cidade custa o dobro.' },
+    { emoji: '☂️', titulo: 'Chuva', texto: 'Guarda-chuva na bagagem é obrigatório. Em Gramado vende por R$ 50, na sua cidade por R$ 15. Vai preparado!' },
+    { emoji: '🥾', titulo: 'Calçado', texto: 'Traga tênis confortável. Gramado tem muitas ladeiras e você vai caminhar muito mais do que imagina.' },
+    { emoji: '🍽️', titulo: 'Fondue', texto: 'Experimente ao menos uma vez — é o prato símbolo da cidade. Prefira dias frios para a experiência completa.' },
+    { emoji: '📅', titulo: 'Timing', texto: 'Viaje em dias de semana sempre que possível. Filas somem e preços caem até 40% comparado ao fim de semana.' },
+    { emoji: '🎟️', titulo: 'Ingressos', texto: 'Compre sempre online e com antecedência — além de mais barato, você evita fila e garante vaga nos melhores horários.' },
+    { emoji: '🚗', titulo: 'Transporte', texto: 'Muitas atrações ficam fora do centro. Use Uber ou alugue carro — o transporte público é limitado.' },
+    { emoji: '🍫', titulo: 'Chocolate', texto: 'Compre na Prawer ou Lugano. Evite lojas de rua que vendem marca genérica com embalagem bonita.' },
+  ];
+
+  dicasGerais.forEach(dica => {
+    const linhas = wrapText(dica.texto, CONTENT_W - 28, 8);
+    const altDica = 6 + linhas.length * 4.5 + 4;
+    checarNovaPagina(altDica + 3);
+
+    doc.setFillColor(...COR_CARD);
+    doc.roundedRect(MARGIN, curY, CONTENT_W, altDica, 3, 3, 'F');
+
+    doc.setFontSize(11);
+    doc.text(dica.emoji, MARGIN + 5, curY + altDica / 2 + 2);
+
+    doc.setTextColor(...COR_GREEN);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(dica.titulo + ':', MARGIN + 14, curY + 7);
+
+    doc.setTextColor(200, 220, 200);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    let dicaY = curY + 12;
+    linhas.forEach(l => { doc.text(l, MARGIN + 14, dicaY); dicaY += 4.5; });
+
+    curY += altDica + 3;
+  });
+
+  // CTA final
+  checarNovaPagina(30);
+  curY += 6;
+  doc.setFillColor(30, 20, 5);
+  doc.roundedRect(MARGIN, curY, CONTENT_W, 22, 4, 4, 'F');
+  doc.setDrawColor(...COR_YELLOW);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(MARGIN, curY, CONTENT_W, 22, 4, 4, 'S');
+  doc.setTextColor(...COR_YELLOW);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Acesse seus descontos exclusivos em:', PAGE_W / 2, curY + 8, { align: 'center' });
+  doc.setTextColor(...COR_TEXT);
+  doc.setFontSize(10);
+  doc.text('guiadopobre.com', PAGE_W / 2, curY + 16, { align: 'center' });
+
+  rodape();
+
+  // ── Download ─────────────────────────────────────────────
+  const nomeArquivo = 'roteiro-gramado-' + nomeUser.toLowerCase().replace(/\s+/g, '-') + '.pdf';
+  doc.save(nomeArquivo);
+  showToast('PDF gerado com sucesso! Verifique seus downloads 🎉');
 }
 
 </script>
