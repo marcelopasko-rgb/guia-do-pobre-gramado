@@ -466,7 +466,7 @@ let _comprasCarregadas = false;
 async function verificarCompras() {
   try {
     // Pega o email do usuário logado (do Supabase Auth)
-    const { data: { user } } = await supabaseClient.auth.getUser();
+    const { data: { user } } = await _supabase.auth.getUser();
     if (!user || !user.email) {
       _minhasCompras = [];
       _comprasCarregadas = true;
