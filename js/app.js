@@ -505,7 +505,7 @@ const bonusUpsells = [
     titulo: 'Roteiro Versão PDF',
     desc: 'Tenha uma versão completa do seu Roteiro Personalizado em PDF para mandar no grupo da família ou para utilizar em locais onde a internet não pega em Gramado.',
     preco: 'R$ 17,00',
-    url: 'https://pay.hotmart.com/...',
+    url: 'pay.kiwify.com.br/...',
     destaque: false
   },
   {
@@ -513,7 +513,7 @@ const bonusUpsells = [
     titulo: 'Restaurantes Secretos Custo-Benefício',
     desc: 'Lista completa dos melhores restaurantes custo-benefício que te farão economizar até R$ 500 por dia em Gramado.',
     preco: 'R$ 17,00',
-    url: 'https://pay.hotmart.com/...',
+    url: 'pay.kiwify.com.br/...',
     destaque: false
   },
   {
@@ -522,7 +522,7 @@ const bonusUpsells = [
     desc: 'Os dois bônus acima juntos por um preço especial. Economize comprando o combo.',
     preco: 'R$ 24,00',
     de: 'R$ 34,00',
-    url: 'https://pay.hotmart.com/...',
+    url: 'pay.kiwify.com.br/...',
     destaque: true
   }
 ];
