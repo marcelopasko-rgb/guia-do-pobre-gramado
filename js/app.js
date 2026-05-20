@@ -165,6 +165,9 @@ function ensureBuilt(overlayId) {
       case 'overlay-relampago':
         buildRelampago();
         break;
+      case 'overlay-bonus':
+        buildBonus();
+        break;
     }
   } catch(e) {
     // Build falhou — remove da lista pra tentar de novo na próxima abertura
@@ -453,6 +456,80 @@ function buildPromocoes(){
         </div>
       </div>
     `}).join('')}
+  `;
+}
+
+/* ═══ BÔNUS DO POBRE (UPSELLS) ═══ */
+const bonusUpsells = [
+  {
+    icon: 'livro',
+    titulo: 'Roteiro Versão PDF',
+    desc: 'Tenha uma versão completa do seu Roteiro Personalizado em PDF para mandar no grupo da família ou para utilizar em locais onde a internet não pega em Gramado.',
+    preco: 'R$ 17,00',
+    url: 'https://pay.hotmart.com/...',
+    destaque: false
+  },
+  {
+    icon: 'livro',
+    titulo: 'Restaurantes Secretos Custo-Benefício',
+    desc: 'Lista completa dos melhores restaurantes custo-benefício que te farão economizar até R$ 500 por dia em Gramado.',
+    preco: 'R$ 17,00',
+    url: 'https://pay.hotmart.com/...',
+    destaque: false
+  },
+  {
+    icon: 'economia',
+    titulo: 'Combo: Roteiro PDF + Restaurantes Secretos',
+    desc: 'Os dois bônus acima juntos por um preço especial. Economize comprando o combo.',
+    preco: 'R$ 24,00',
+    de: 'R$ 34,00',
+    url: 'https://pay.hotmart.com/...',
+    destaque: true
+  }
+];
+
+function bonusIconSVG(tipo) {
+  if (tipo === 'economia') {
+    // ícone de cofrinho / economia
+    return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 5c-1.5 0-2.8 1.4-3 2-3.5-1.5-7.5-1-10 1-3 2.5-3 6.5-1 9 1 1 1 3 0 4h6v-2c.5 0 1 0 1.5-.2.5 1.2 2 2.2 3.5 2.2v-3.5c1-.5 2-1.5 2-3 0-2-1-3-2-3.5V5z"/><circle cx="16" cy="10" r="0.5" fill="currentColor"/></svg>`;
+  }
+  // ícone de livro (default)
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
+}
+
+function buildBonus() {
+  const body = document.getElementById('bonus-body');
+  body.innerHTML = `
+    <div style="padding:14px 18px 12px;background:#1a1500;border-bottom:1px solid #2a2200;border-top:1px solid #2a2200;">
+      <p style="font-size:11px;color:#f0c020;font-weight:700;line-height:1.5;">✨ Bônus exclusivos pra quem quer economizar de verdade em Gramado.</p>
+    </div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:12px;">
+      ${bonusUpsells.map(item => `
+        <div class="bonus-card${item.destaque ? ' bonus-card-destaque' : ''}">
+          ${item.destaque ? '<div class="bonus-badge">MAIS ESCOLHIDO</div>' : ''}
+          <div class="bonus-card-top">
+            <div class="bonus-icon">${bonusIconSVG(item.icon)}</div>
+            <div class="bonus-info">
+              <h4 class="bonus-titulo">${item.titulo}</h4>
+              <p class="bonus-desc">${item.desc}</p>
+            </div>
+          </div>
+          <div class="bonus-card-bottom">
+            <div class="bonus-preco-wrap">
+              ${item.de ? `<span class="bonus-preco-de"><s>${item.de}</s></span>` : ''}
+              <span class="bonus-preco-por">${item.preco}</span>
+            </div>
+            <a href="${item.url}" target="_blank" rel="noopener" class="bonus-btn" onclick="track && track('bonus_click',{item:'${item.titulo.replace(/'/g,"\\'")}'});">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Quero esse bônus
+            </a>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+    <div style="padding:6px 18px 24px;">
+      <p style="font-size:10.5px;color:#71717a;line-height:1.6;text-align:center;">🔒 Pagamento seguro via Hotmart · Acesso imediato após a compra</p>
+    </div>
   `;
 }
 
