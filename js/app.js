@@ -734,8 +734,19 @@ async function baixarRoteiroPDF() {
   const elemento = document.createElement('div');
   elemento.innerHTML = html;
   document.body.appendChild(elemento);
-  elemento.style.position = 'absolute';
-  elemento.style.left = '-9999px';
+  // Posiciona o elemento visivelmente mas longe da viewport (não pode ser display:none nem left:-9999px,
+  // senão o html2canvas captura tela em branco em alguns navegadores)
+  elemento.style.position = 'fixed';
+  elemento.style.top = '0';
+  elemento.style.left = '0';
+  elemento.style.width = '680px';
+  elemento.style.background = '#fff';
+  elemento.style.zIndex = '-9999';
+  elemento.style.opacity = '0';
+  elemento.style.pointerEvents = 'none';
+
+  // Pequena espera pra garantir que o navegador renderizou
+  await new Promise(resolve => setTimeout(resolve, 100));
 
   const opcoes = {
     margin: 0,
