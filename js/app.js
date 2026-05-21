@@ -678,12 +678,14 @@ async function baixarRoteiroPDF() {
     <div style="width:60px;height:3px;background:#f0c020;margin:0 auto 40px;"></div>
     <div style="font-size:38px;font-weight:800;line-height:1.2;margin-bottom:20px;color:#fff;">Seu Roteiro<br>Personalizado</div>
     <div style="font-size:17px;color:#bbb;margin-bottom:60px;">Gramado e Canela</div>
-    <div style="background:#1a1500;border:1px solid #3a2f08;border-radius:12px;padding:30px;display:inline-block;text-align:left;">
-      <div style="font-size:12px;color:#888;margin-bottom:8px;letter-spacing:1px;">PREPARADO PARA</div>
-      <div style="font-size:24px;font-weight:700;color:#f0c020;margin-bottom:20px;">${nomeUsuario}</div>
-      <div style="font-size:13px;color:#bbb;margin-bottom:6px;">${totalDias} ${totalDias === 1 ? 'dia' : 'dias'} de roteiro</div>
-      <div style="font-size:13px;color:#bbb;">Gerado em ${dataAtual}</div>
-    </div>
+     <table style="margin:20px auto;border-collapse:collapse;">
+      <tr><td style="background:#1a1500;border:1px solid #3a2f08;border-radius:12px;padding:30px 40px;text-align:center;">
+        <div style="font-size:12px;color:#aaaaaa;margin-bottom:10px;letter-spacing:1px;font-family:Arial,sans-serif;">PREPARADO PARA</div>
+        <div style="font-size:26px;font-weight:700;color:#f0c020;margin-bottom:18px;font-family:Arial,sans-serif;">${nomeUsuario}</div>
+        <div style="font-size:14px;color:#dddddd;margin-bottom:6px;font-family:Arial,sans-serif;">${totalDias} ${totalDias === 1 ? 'dia' : 'dias'} de roteiro</div>
+        <div style="font-size:14px;color:#dddddd;font-family:Arial,sans-serif;">Gerado em ${dataAtual}</div>
+      </td></tr>
+    </table>
   </div>
   ${window._roteiroAtual.map(dia => `
     <div class="pdf-page-break" style="padding:50px 40px;background:#fff;">
