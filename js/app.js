@@ -1,4 +1,3 @@
-
 /* ═══ ICON SYSTEM — SVG RICO + GRADIENTE POR CATEGORIA ═══ */
  
 // Cada atração tem: svg path data, cor de fundo (gradiente), cor do stroke
@@ -658,22 +657,37 @@ async function baixarRoteiroPDF() {
 
   let nomeUsuario = 'Viajante';
   try {
-    const sb = window._supabase || window.supabase || window.supabaseClient;
-    if (sb) {
-      const { data: { user } } = await sb.auth.getUser();
-      if (user) {
-        const meta = user.user_metadata || {};
+    // Tenta usar a variável global currentUser primeiro (já está pronta no auth.js)
+    let user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : null;
+    console.log('[PDF] currentUser global:', user?.email, 'metadata:', user?.user_metadata);
+
+    // Se não tem currentUser, busca via Supabase Auth
+    if (!user) {
+      const sb = window._supabase || window.supabase || window.supabaseClient;
+      console.log('[PDF] Cliente Supabase encontrado:', !!sb);
+      if (sb && sb.auth) {
+        const resp = await sb.auth.getUser();
+        user = resp?.data?.user || null;
+        console.log('[PDF] Resposta auth.getUser:', { hasUser: !!user, email: user?.email });
+      }
+    }
+
+    if (user) {
+      const meta = user.user_metadata || {};
+      console.log('[PDF] user_metadata completo:', meta);
       const nomeRaw = meta.full_name || meta.display_name || meta.name || meta.nome || '';
+      console.log('[PDF] nomeRaw extraído:', nomeRaw);
       if (nomeRaw && nomeRaw.trim()) {
         nomeUsuario = nomeRaw.trim().split(' ')[0];
       } else if (user.email) {
         const localPart = user.email.split('@')[0].replace(/[._\-]/g, ' ');
         nomeUsuario = localPart.charAt(0).toUpperCase() + localPart.slice(1);
       }
-      console.log('[PDF] Nome detectado:', nomeUsuario); 
-      }
     }
-  } catch(e) {}
+    console.log('[PDF] Nome FINAL:', nomeUsuario);
+  } catch(e) {
+    console.error('[PDF] Erro ao pegar nome:', e);
+  }
 
   const dataAtual = new Date().toLocaleDateString('pt-BR');
   const totalDias = window._roteiroAtual.length;
