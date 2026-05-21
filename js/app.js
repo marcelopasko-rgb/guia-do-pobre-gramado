@@ -642,7 +642,6 @@ async function buildBonus() {
 async function baixarRoteiroPDF() {
   console.log('[PDF] Iniciando...');
 
-  // 1. Validações
   if (!window._roteiroAtual || !Array.isArray(window._roteiroAtual) || window._roteiroAtual.length === 0) {
     showToast('Abra seu Roteiro Personalizado primeiro!');
     setTimeout(() => openOverlay('overlay-roteiro'), 800);
@@ -651,74 +650,129 @@ async function baixarRoteiroPDF() {
 
   if (typeof html2pdf === 'undefined') {
     showToast('Erro: biblioteca de PDF não carregou');
-    console.error('[PDF] html2pdf undefined');
     return;
   }
 
-  console.log('[PDF] Roteiro tem', window._roteiroAtual.length, 'dias');
-  console.log('[PDF] html2pdf disponível:', typeof html2pdf);
-
   showToast('Gerando seu PDF, aguarde...');
 
-  // 2. HTML SUPER SIMPLES pra teste — só texto, sem CSS complexo
-  let htmlSimples = '<div style="padding:20px;font-family:Arial;color:#000;background:#fff;width:600px;">';
-  htmlSimples += '<h1 style="color:#0a0a0a;">Meu Roteiro de Gramado</h1>';
-  htmlSimples += '<p>Total de dias: ' + window._roteiroAtual.length + '</p>';
-
-  window._roteiroAtual.forEach(function(dia) {
-    htmlSimples += '<h2 style="color:#d4a017;margin-top:30px;">Dia ' + dia.dia + ' - ' + dia.titulo + '</h2>';
-    if (dia.sub) htmlSimples += '<p><em>' + dia.sub + '</em></p>';
-
-    dia.atr.forEach(function(atracao, idx) {
-      htmlSimples += '<div style="padding:10px 0;border-bottom:1px solid #ddd;">';
-      htmlSimples += '<strong>' + (idx+1) + '. ' + atracao.n + '</strong><br>';
-      htmlSimples += '<span style="color:#666;font-size:13px;">' + atracao.d + '</span><br>';
-      htmlSimples += '<span style="color:#d4a017;">' + atracao.v + '</span>';
-      htmlSimples += '</div>';
-    });
-
-    if (dia.tip) {
-      htmlSimples += '<p style="background:#fef3c7;padding:10px;margin-top:10px;font-size:13px;">' + dia.tip + '</p>';
-    }
-  });
-
-  htmlSimples += '</div>';
-
-  // 3. Cria elemento visível na tela (sem opacity 0, sem position fixed estranho)
-  const elemento = document.createElement('div');
-  elemento.innerHTML = htmlSimples;
-  elemento.style.position = 'fixed';
-  elemento.style.top = '0';
-  elemento.style.left = '0';
-  elemento.style.background = '#fff';
-  elemento.style.zIndex = '99999';
-  document.body.appendChild(elemento);
-
-  console.log('[PDF] Elemento adicionado ao DOM, HTML tem', htmlSimples.length, 'caracteres');
-
-  // 4. Aguarda renderização
-  await new Promise(resolve => setTimeout(resolve, 500));
-
-  // 5. Gera PDF
+  let nomeUsuario = 'Viajante';
   try {
-    console.log('[PDF] Chamando html2pdf...');
+    const sb = window.supabase || window.supabaseClient;
+    if (sb) {
+      const { data: { user } } = await sb.auth.getUser();
+      if (user) {
+        nomeUsuario = user.user_metadata?.display_name || user.email?.split('@')[0] || 'Viajante';
+      }
+    }
+  } catch(e) {}
+
+  const dataAtual = new Date().toLocaleDateString('pt-BR');
+  const totalDias = window._roteiroAtual.length;
+
+  // HTML simples sem SVGs
+  let html = `
+<div style="font-family:Arial,Helvetica,sans-serif;color:#222;width:680px;background:#fff;">
+  <div style="text-align:center;padding:80px 40px;background:#0a0a0a;color:#fff;">
+    <div style="font-size:13px;color:#f0c020;font-weight:700;letter-spacing:4px;margin-bottom:24px;">GUIA DO POBRE EM GRAMADO</div>
+    <div style="width:60px;height:3px;background:#f0c020;margin:0 auto 40px;"></div>
+    <div style="font-size:38px;font-weight:800;line-height:1.2;margin-bottom:20px;color:#fff;">Seu Roteiro<br>Personalizado</div>
+    <div style="font-size:17px;color:#bbb;margin-bottom:60px;">Gramado e Canela</div>
+    <div style="background:#1a1500;border:1px solid #3a2f08;border-radius:12px;padding:30px;display:inline-block;text-align:left;">
+      <div style="font-size:12px;color:#888;margin-bottom:8px;letter-spacing:1px;">PREPARADO PARA</div>
+      <div style="font-size:24px;font-weight:700;color:#f0c020;margin-bottom:20px;">${nomeUsuario}</div>
+      <div style="font-size:13px;color:#bbb;margin-bottom:6px;">${totalDias} ${totalDias === 1 ? 'dia' : 'dias'} de roteiro</div>
+      <div style="font-size:13px;color:#bbb;">Gerado em ${dataAtual}</div>
+    </div>
+  </div>
+  ${window._roteiroAtual.map(dia => `
+    <div style="padding:50px 40px;page-break-before:always;background:#fff;">
+      <div style="border-bottom:3px solid #f0c020;padding-bottom:20px;margin-bottom:30px;">
+        <div style="font-size:12px;color:#f0c020;font-weight:700;letter-spacing:3px;">DIA ${dia.dia}</div>
+        <div style="font-size:26px;font-weight:800;color:#0a0a0a;margin-top:8px;">${dia.titulo}</div>
+        ${dia.sub ? `<div style="font-size:13px;color:#666;margin-top:8px;font-style:italic;">${dia.sub}</div>` : ''}
+      </div>
+      ${dia.atr.map((atracao, idx) => `
+        <table style="width:100%;border-collapse:collapse;margin-bottom:14px;border-bottom:1px solid #eee;">
+          <tr>
+            <td style="width:40px;vertical-align:top;padding:14px 0;">
+              <div style="background:${atracao.free ? '#22c55e' : '#f0c020'};color:${atracao.free ? '#fff' : '#1a1500'};width:32px;height:32px;border-radius:16px;text-align:center;line-height:32px;font-weight:800;font-size:15px;">${idx + 1}</div>
+            </td>
+            <td style="vertical-align:top;padding:14px 0 14px 12px;">
+              <div style="font-weight:700;font-size:15px;color:#0a0a0a;margin-bottom:4px;">${atracao.n}</div>
+              <div style="font-size:12px;color:#666;line-height:1.5;margin-bottom:8px;">${atracao.d}</div>
+              <span style="display:inline-block;background:${atracao.free ? '#dcfce7' : '#fef3c7'};color:${atracao.free ? '#166534' : '#92400e'};font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;">${atracao.v}</span>
+            </td>
+          </tr>
+        </table>
+      `).join('')}
+      ${dia.tip ? `
+        <div style="margin-top:24px;background:#fef3c7;border-left:4px solid #f0c020;padding:16px 18px;border-radius:6px;">
+          <div style="font-size:11px;font-weight:800;color:#92400e;letter-spacing:1.5px;margin-bottom:8px;">DICA DO POBRE</div>
+          <div style="font-size:12.5px;color:#451a03;line-height:1.6;">${dia.tip}</div>
+        </div>
+      ` : ''}
+    </div>
+  `).join('')}
+  <div style="text-align:center;padding:100px 40px;background:#0a0a0a;color:#fff;page-break-before:always;">
+    <div style="font-size:30px;font-weight:800;color:#f0c020;margin-bottom:20px;">Boa viagem!</div>
+    <div style="font-size:14px;color:#bbb;line-height:1.7;max-width:420px;margin:0 auto 40px;">Esperamos que esse roteiro torne sua viagem a Gramado inesquecivel e economica.</div>
+    <div style="width:40px;height:2px;background:#f0c020;margin:0 auto 40px;"></div>
+    <div style="font-size:11px;color:#888;letter-spacing:3px;">GUIA DO POBRE EM GRAMADO</div>
+    <div style="font-size:10px;color:#666;margin-top:8px;">Roteiros personalizados</div>
+  </div>
+</div>
+`;
+
+  // ⭐ ABORDAGEM NOVA: criar um IFRAME isolado pra renderizar o PDF
+  // Isso evita que o html2canvas pegue SVGs e estilos do app principal
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.top = '0';
+  iframe.style.left = '0';
+  iframe.style.width = '720px';
+  iframe.style.height = '100vh';
+  iframe.style.border = 'none';
+  iframe.style.zIndex = '-9999';
+  iframe.style.opacity = '0';
+  document.body.appendChild(iframe);
+
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+  iframeDoc.open();
+  iframeDoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#fff;">' + html + '</body></html>');
+  iframeDoc.close();
+
+  console.log('[PDF] Iframe criado, aguardando renderização...');
+  await new Promise(resolve => setTimeout(resolve, 800));
+
+  try {
+    const targetElement = iframeDoc.body.firstElementChild;
+    console.log('[PDF] Chamando html2pdf no elemento do iframe...');
+
     await html2pdf()
       .set({
-        margin: 10,
-        filename: 'Roteiro-Gramado.pdf',
-        image: { type: 'jpeg', quality: 0.9 },
-        html2canvas: { scale: 1, logging: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        margin: 0,
+        filename: `Roteiro-Gramado-${nomeUsuario.replace(/\s/g, '_')}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['css', 'legacy'] }
       })
-      .from(elemento)
+      .from(targetElement)
       .save();
+
     console.log('[PDF] PDF gerado com sucesso!');
     showToast('PDF baixado!');
+    if (typeof track === 'function') track('pdf_baixado', {});
   } catch (err) {
     console.error('[PDF] Erro:', err);
-    showToast('Erro: ' + err.message);
+    showToast('Erro ao gerar PDF: ' + err.message);
   } finally {
-    document.body.removeChild(elemento);
+    document.body.removeChild(iframe);
   }
 }
 
