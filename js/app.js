@@ -639,8 +639,122 @@ async function buildBonus() {
 }
 
 // Placeholder das funções que vamos criar nas próximas etapas
-function baixarRoteiroPDF() {
-  showToast('Gerando seu PDF... (em breve!)');
+async function baixarRoteiroPDF() {
+  // 1. Verifica se o usuário já gerou o roteiro
+  if (!window._roteiroAtual || !Array.isArray(window._roteiroAtual) || window._roteiroAtual.length === 0) {
+    showToast('Abra seu Roteiro Personalizado primeiro!');
+    setTimeout(() => openOverlay('overlay-roteiro'), 800);
+    return;
+  }
+
+  // 2. Verifica se a lib html2pdf foi carregada
+  if (typeof html2pdf === 'undefined') {
+    showToast('Erro: biblioteca de PDF não carregou');
+    return;
+  }
+
+  // 3. Pega nome do usuário (se tiver) pra personalizar
+  let nomeUsuario = 'Viajante';
+  try {
+    const sb = window.supabase || window.supabaseClient;
+    if (sb) {
+      const { data: { user } } = await sb.auth.getUser();
+      if (user) {
+        nomeUsuario = user.user_metadata?.display_name || user.email?.split('@')[0] || 'Viajante';
+      }
+    }
+  } catch(e) {}
+
+  // 4. Mostra loading
+  showToast('Gerando seu PDF, aguarde...');
+
+  // 5. Monta HTML do PDF
+  const dataAtual = new Date().toLocaleDateString('pt-BR');
+  const totalDias = window._roteiroAtual.length;
+
+  const html = `
+<div style="font-family:Arial,sans-serif;color:#222;max-width:680px;padding:0;">
+
+  <!-- CAPA -->
+  <div style="text-align:center;padding:60px 30px;page-break-after:always;background:linear-gradient(135deg,#0a0a0a 0%,#1a1500 100%);color:#fff;">
+    <div style="font-size:14px;color:#f0c020;font-weight:700;letter-spacing:3px;margin-bottom:20px;">GUIA DO POBRE EM GRAMADO</div>
+    <div style="width:60px;height:3px;background:#f0c020;margin:0 auto 40px;"></div>
+    <div style="font-size:34px;font-weight:800;line-height:1.2;margin-bottom:16px;">Seu Roteiro<br>Personalizado</div>
+    <div style="font-size:16px;color:#ccc;margin-bottom:50px;">Gramado &amp; Canela</div>
+    <div style="background:rgba(240,192,32,0.1);border:1px solid rgba(240,192,32,0.3);border-radius:12px;padding:24px;display:inline-block;text-align:left;margin-top:20px;">
+      <div style="font-size:13px;color:#999;margin-bottom:6px;">Preparado para</div>
+      <div style="font-size:22px;font-weight:700;color:#f0c020;margin-bottom:16px;">${nomeUsuario}</div>
+      <div style="font-size:12px;color:#999;margin-bottom:4px;">📅 ${totalDias} ${totalDias === 1 ? 'dia' : 'dias'} de roteiro</div>
+      <div style="font-size:12px;color:#999;">📆 Gerado em ${dataAtual}</div>
+    </div>
+  </div>
+
+  <!-- DIAS -->
+  ${window._roteiroAtual.map(dia => `
+    <div style="page-break-inside:avoid;page-break-after:always;padding:40px 30px;">
+      <div style="border-bottom:3px solid #f0c020;padding-bottom:16px;margin-bottom:24px;">
+        <div style="font-size:13px;color:#f0c020;font-weight:700;letter-spacing:2px;">DIA ${dia.dia}</div>
+        <div style="font-size:24px;font-weight:800;color:#0a0a0a;margin-top:6px;">${dia.titulo}</div>
+        ${dia.sub ? `<div style="font-size:13px;color:#666;margin-top:6px;font-style:italic;">${dia.sub}</div>` : ''}
+      </div>
+
+      ${dia.atr.map((atracao, idx) => `
+        <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid #eee;">
+          <div style="background:${atracao.free ? '#22c55e' : '#f0c020'};color:${atracao.free ? '#fff' : '#1a1500'};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0;">${idx + 1}</div>
+          <div style="flex:1;">
+            <div style="font-weight:700;font-size:15px;color:#0a0a0a;margin-bottom:4px;">${atracao.n}</div>
+            <div style="font-size:12px;color:#666;line-height:1.5;margin-bottom:6px;">${atracao.d}</div>
+            <div style="display:inline-block;background:${atracao.free ? '#dcfce7' : '#fef3c7'};color:${atracao.free ? '#166534' : '#92400e'};font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;">${atracao.v}</div>
+          </div>
+        </div>
+      `).join('')}
+
+      ${dia.tip ? `
+        <div style="margin-top:20px;background:#fef3c7;border-left:4px solid #f0c020;padding:14px 16px;border-radius:6px;">
+          <div style="font-size:11px;font-weight:800;color:#92400e;letter-spacing:1px;margin-bottom:6px;">💡 DICA DO POBRE</div>
+          <div style="font-size:12px;color:#451a03;line-height:1.6;">${dia.tip}</div>
+        </div>
+      ` : ''}
+    </div>
+  `).join('')}
+
+  <!-- PÁGINA FINAL -->
+  <div style="text-align:center;padding:80px 30px;background:linear-gradient(135deg,#0a0a0a 0%,#1a1500 100%);color:#fff;">
+    <div style="font-size:28px;font-weight:800;color:#f0c020;margin-bottom:16px;">Boa viagem!</div>
+    <div style="font-size:14px;color:#ccc;line-height:1.7;max-width:400px;margin:0 auto 30px;">Esperamos que esse roteiro torne sua viagem a Gramado inesquecível e econômica.</div>
+    <div style="width:40px;height:2px;background:#f0c020;margin:0 auto 30px;"></div>
+    <div style="font-size:11px;color:#999;letter-spacing:2px;">GUIA DO POBRE EM GRAMADO</div>
+    <div style="font-size:10px;color:#666;margin-top:8px;">Roteiros personalizados &middot; Economia garantida</div>
+  </div>
+
+</div>
+  `;
+
+  // 6. Cria elemento temporário, gera PDF e baixa
+  const elemento = document.createElement('div');
+  elemento.innerHTML = html;
+  document.body.appendChild(elemento);
+  elemento.style.position = 'absolute';
+  elemento.style.left = '-9999px';
+
+  const opcoes = {
+    margin: 0,
+    filename: `Roteiro-Gramado-${nomeUsuario.replace(/\s/g, '_')}.pdf`,
+    image: { type: 'jpeg', quality: 0.95 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+
+  try {
+    await html2pdf().set(opcoes).from(elemento).save();
+    showToast('PDF baixado! 📥');
+    if (typeof track === 'function') track('pdf_baixado', {});
+  } catch (err) {
+    console.error('[baixarRoteiroPDF] Erro:', err);
+    showToast('Erro ao gerar PDF. Tente novamente.');
+  } finally {
+    document.body.removeChild(elemento);
+  }
 }
 
 /* ═══ RESTAURANTES ═══ */
