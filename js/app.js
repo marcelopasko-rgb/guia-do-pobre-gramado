@@ -267,6 +267,7 @@ function toggleDay(header){
 
 function buildRoteiro(dados){
   const data = dados || roteiroData;
+  window._roteiroAtual = data;
   const body=document.getElementById('roteiro-content') || document.getElementById('roteiro-body');
   body.innerHTML=data.map((d,i)=>`
     <div class="day-block ${i===0?'open':''}">
