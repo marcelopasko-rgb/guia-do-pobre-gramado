@@ -658,11 +658,19 @@ async function baixarRoteiroPDF() {
 
   let nomeUsuario = 'Viajante';
   try {
-    const sb = window.supabase || window.supabaseClient;
+    const sb = window._supabase || window.supabase || window.supabaseClient;
     if (sb) {
       const { data: { user } } = await sb.auth.getUser();
       if (user) {
-        nomeUsuario = user.user_metadata?.full_name || user.user_metadata?.display_name || user.user_metadata?.name || 'Viajante';
+        const meta = user.user_metadata || {};
+      const nomeRaw = meta.full_name || meta.display_name || meta.name || meta.nome || '';
+      if (nomeRaw && nomeRaw.trim()) {
+        nomeUsuario = nomeRaw.trim().split(' ')[0];
+      } else if (user.email) {
+        const localPart = user.email.split('@')[0].replace(/[._\-]/g, ' ');
+        nomeUsuario = localPart.charAt(0).toUpperCase() + localPart.slice(1);
+      }
+      console.log('[PDF] Nome detectado:', nomeUsuario);
       }
     }
   } catch(e) {}
