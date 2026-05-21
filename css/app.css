@@ -1175,3 +1175,53 @@ s{color:#555;font-weight:500;}
   color: #fff !important;
   box-shadow: 0 4px 14px rgba(34, 197, 94, 0.25) !important;
 }
+
+/* ════════════════════════════════════════════════════════════════
+   RESTAURANTES SECRETOS (BÔNUS) — adicione ESTE TRECHO AO FINAL
+   DO SEU css/app.css
+   ════════════════════════════════════════════════════════════════ */
+
+.rest-secreto-card {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  transition: background 0.2s;
+}
+.rest-secreto-card:hover {
+  background: rgba(240, 192, 32, 0.03);
+}
+.rest-secreto-card.open .attr-details {
+  display: block;
+}
+.rest-secreto-card.open .attr-chevron svg {
+  transform: rotate(180deg);
+}
+.rest-secreto-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+}
+.rest-secreto-emoji {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(240, 192, 32, 0.1);
+  border: 1px solid rgba(240, 192, 32, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.rest-secreto-main {
+  flex: 1;
+  min-width: 0;
+}
+.rest-secreto-nome {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.3;
+  margin: 0;
+}
