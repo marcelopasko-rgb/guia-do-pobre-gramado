@@ -727,14 +727,6 @@ async function baixarRoteiroPDF() {
 `;
 
   // ⭐ ABORDAGEM NOVA: criar um IFRAME isolado pra renderizar o PDF
-// Isso evita que o html2canvas pegue SVGs e estilos do app principal
-const iframe = document.createElement('iframe');
-
-iframe.style.position = 'fixed';
-iframe.style.top = '0';
-iframe.style.left = '0';
-
-// ⭐ ABORDAGEM NOVA: criar um IFRAME isolado pra renderizar o PDF
   // Isso evita que o html2canvas pegue SVGs e estilos do app principal
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
@@ -2538,6 +2530,3 @@ async function renderComunidadeInit() {
   await loadPosts();
   initRealtime();
 }
-
-
-
