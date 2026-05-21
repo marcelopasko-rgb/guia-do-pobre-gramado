@@ -672,59 +672,63 @@ async function baixarRoteiroPDF() {
   const dataAtual = new Date().toLocaleDateString('pt-BR');
   const totalDias = window._roteiroAtual.length;
 
-  const html = `
-<div style="font-family:Arial,sans-serif;color:#222;max-width:680px;padding:0;">
+const html = `
+<div style="font-family:Arial,Helvetica,sans-serif;color:#222;width:680px;background:#fff;">
 
   <!-- CAPA -->
-  <div style="text-align:center;padding:60px 30px;page-break-after:always;background:linear-gradient(135deg,#0a0a0a 0%,#1a1500 100%);color:#fff;">
-    <div style="font-size:14px;color:#f0c020;font-weight:700;letter-spacing:3px;margin-bottom:20px;">GUIA DO POBRE EM GRAMADO</div>
+  <div style="text-align:center;padding:80px 40px;background:#0a0a0a;color:#fff;">
+    <div style="font-size:13px;color:#f0c020;font-weight:700;letter-spacing:4px;margin-bottom:24px;">GUIA DO POBRE EM GRAMADO</div>
     <div style="width:60px;height:3px;background:#f0c020;margin:0 auto 40px;"></div>
-    <div style="font-size:34px;font-weight:800;line-height:1.2;margin-bottom:16px;">Seu Roteiro<br>Personalizado</div>
-    <div style="font-size:16px;color:#ccc;margin-bottom:50px;">Gramado &amp; Canela</div>
-    <div style="background:rgba(240,192,32,0.1);border:1px solid rgba(240,192,32,0.3);border-radius:12px;padding:24px;display:inline-block;text-align:left;margin-top:20px;">
-      <div style="font-size:13px;color:#999;margin-bottom:6px;">Preparado para</div>
-      <div style="font-size:22px;font-weight:700;color:#f0c020;margin-bottom:16px;">${nomeUsuario}</div>
-      <div style="font-size:12px;color:#999;margin-bottom:4px;">📅 ${totalDias} ${totalDias === 1 ? 'dia' : 'dias'} de roteiro</div>
-      <div style="font-size:12px;color:#999;">📆 Gerado em ${dataAtual}</div>
+    <div style="font-size:38px;font-weight:800;line-height:1.2;margin-bottom:20px;color:#fff;">Seu Roteiro<br>Personalizado</div>
+    <div style="font-size:17px;color:#bbb;margin-bottom:60px;">Gramado e Canela</div>
+    <div style="background:#1a1500;border:1px solid #3a2f08;border-radius:12px;padding:30px;display:inline-block;text-align:left;">
+      <div style="font-size:12px;color:#888;margin-bottom:8px;letter-spacing:1px;">PREPARADO PARA</div>
+      <div style="font-size:24px;font-weight:700;color:#f0c020;margin-bottom:20px;">${nomeUsuario}</div>
+      <div style="font-size:13px;color:#bbb;margin-bottom:6px;">${totalDias} ${totalDias === 1 ? 'dia' : 'dias'} de roteiro</div>
+      <div style="font-size:13px;color:#bbb;">Gerado em ${dataAtual}</div>
     </div>
   </div>
 
   <!-- DIAS -->
   ${window._roteiroAtual.map(dia => `
-    <div style="page-break-inside:avoid;page-break-after:always;padding:40px 30px;">
-      <div style="border-bottom:3px solid #f0c020;padding-bottom:16px;margin-bottom:24px;">
-        <div style="font-size:13px;color:#f0c020;font-weight:700;letter-spacing:2px;">DIA ${dia.dia}</div>
-        <div style="font-size:24px;font-weight:800;color:#0a0a0a;margin-top:6px;">${dia.titulo}</div>
-        ${dia.sub ? `<div style="font-size:13px;color:#666;margin-top:6px;font-style:italic;">${dia.sub}</div>` : ''}
+    <div style="padding:50px 40px;page-break-before:always;background:#fff;">
+      <div style="border-bottom:3px solid #f0c020;padding-bottom:20px;margin-bottom:30px;">
+        <div style="font-size:12px;color:#f0c020;font-weight:700;letter-spacing:3px;">DIA ${dia.dia}</div>
+        <div style="font-size:26px;font-weight:800;color:#0a0a0a;margin-top:8px;">${dia.titulo}</div>
+        ${dia.sub ? `<div style="font-size:13px;color:#666;margin-top:8px;font-style:italic;">${dia.sub}</div>` : ''}
       </div>
 
       ${dia.atr.map((atracao, idx) => `
-        <div style="display:flex;gap:14px;padding:14px 0;border-bottom:1px solid #eee;">
-          <div style="background:${atracao.free ? '#22c55e' : '#f0c020'};color:${atracao.free ? '#fff' : '#1a1500'};width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px;flex-shrink:0;">${idx + 1}</div>
-          <div style="flex:1;">
-            <div style="font-weight:700;font-size:15px;color:#0a0a0a;margin-bottom:4px;">${atracao.n}</div>
-            <div style="font-size:12px;color:#666;line-height:1.5;margin-bottom:6px;">${atracao.d}</div>
-            <div style="display:inline-block;background:${atracao.free ? '#dcfce7' : '#fef3c7'};color:${atracao.free ? '#166534' : '#92400e'};font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;">${atracao.v}</div>
-          </div>
-        </div>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:14px;border-bottom:1px solid #eee;padding-bottom:14px;">
+          <tr>
+            <td style="width:40px;vertical-align:top;padding:8px 0;">
+              <div style="background:${atracao.free ? '#22c55e' : '#f0c020'};color:${atracao.free ? '#fff' : '#1a1500'};width:32px;height:32px;border-radius:16px;text-align:center;line-height:32px;font-weight:800;font-size:15px;">${idx + 1}</div>
+            </td>
+            <td style="vertical-align:top;padding:8px 0 8px 12px;">
+              <div style="font-weight:700;font-size:15px;color:#0a0a0a;margin-bottom:4px;">${atracao.n}</div>
+              <div style="font-size:12px;color:#666;line-height:1.5;margin-bottom:8px;">${atracao.d}</div>
+              <span style="display:inline-block;background:${atracao.free ? '#dcfce7' : '#fef3c7'};color:${atracao.free ? '#166534' : '#92400e'};font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;">${atracao.v}</span>
+            </td>
+          </tr>
+        </table>
       `).join('')}
 
       ${dia.tip ? `
-        <div style="margin-top:20px;background:#fef3c7;border-left:4px solid #f0c020;padding:14px 16px;border-radius:6px;">
-          <div style="font-size:11px;font-weight:800;color:#92400e;letter-spacing:1px;margin-bottom:6px;">💡 DICA DO POBRE</div>
-          <div style="font-size:12px;color:#451a03;line-height:1.6;">${dia.tip}</div>
+        <div style="margin-top:24px;background:#fef3c7;border-left:4px solid #f0c020;padding:16px 18px;border-radius:6px;">
+          <div style="font-size:11px;font-weight:800;color:#92400e;letter-spacing:1.5px;margin-bottom:8px;">DICA DO POBRE</div>
+          <div style="font-size:12.5px;color:#451a03;line-height:1.6;">${dia.tip}</div>
         </div>
       ` : ''}
     </div>
   `).join('')}
 
-  <!-- PÁGINA FINAL -->
-  <div style="text-align:center;padding:80px 30px;background:linear-gradient(135deg,#0a0a0a 0%,#1a1500 100%);color:#fff;">
-    <div style="font-size:28px;font-weight:800;color:#f0c020;margin-bottom:16px;">Boa viagem!</div>
-    <div style="font-size:14px;color:#ccc;line-height:1.7;max-width:400px;margin:0 auto 30px;">Esperamos que esse roteiro torne sua viagem a Gramado inesquecível e econômica.</div>
-    <div style="width:40px;height:2px;background:#f0c020;margin:0 auto 30px;"></div>
-    <div style="font-size:11px;color:#999;letter-spacing:2px;">GUIA DO POBRE EM GRAMADO</div>
-    <div style="font-size:10px;color:#666;margin-top:8px;">Roteiros personalizados &middot; Economia garantida</div>
+  <!-- PAGINA FINAL -->
+  <div style="text-align:center;padding:100px 40px;background:#0a0a0a;color:#fff;page-break-before:always;">
+    <div style="font-size:30px;font-weight:800;color:#f0c020;margin-bottom:20px;">Boa viagem!</div>
+    <div style="font-size:14px;color:#bbb;line-height:1.7;max-width:420px;margin:0 auto 40px;">Esperamos que esse roteiro torne sua viagem a Gramado inesquecivel e economica.</div>
+    <div style="width:40px;height:2px;background:#f0c020;margin:0 auto 40px;"></div>
+    <div style="font-size:11px;color:#888;letter-spacing:3px;">GUIA DO POBRE EM GRAMADO</div>
+    <div style="font-size:10px;color:#666;margin-top:8px;">Roteiros personalizados</div>
   </div>
 
 </div>
