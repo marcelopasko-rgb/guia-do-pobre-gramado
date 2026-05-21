@@ -734,129 +734,57 @@ iframe.style.position = 'fixed';
 iframe.style.top = '0';
 iframe.style.left = '0';
 
-// ✅ A4 em pixels aproximado em 96dpi
-iframe.style.width = '794px';
-iframe.style.height = '1123px';
+// ⭐ ABORDAGEM NOVA: criar um IFRAME isolado pra renderizar o PDF
+  // Isso evita que o html2canvas pegue SVGs e estilos do app principal
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.top = '0';
+  iframe.style.left = '0';
+  iframe.style.width = '60px';
+  iframe.style.height = '100vh';
+  iframe.style.border = 'none';
+  iframe.style.zIndex = '-9999';
+  iframe.style.opacity = '0';
+  document.body.appendChild(iframe);
 
-iframe.style.border = 'none';
-iframe.style.zIndex = '-9999';
-iframe.style.opacity = '0';
-iframe.style.pointerEvents = 'none';
+  const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+  iframeDoc.open();
+  iframeDoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="margin:0;padding:0;background:#fff;">' + html + '</body></html>');
+  iframeDoc.close();
 
-document.body.appendChild(iframe);
+  console.log('[PDF] Iframe criado, aguardando renderização...');
+  await new Promise(resolve => setTimeout(resolve, 800));
 
-const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+  try {
+    const targetElement = iframeDoc.body.firstElementChild;
+    console.log('[PDF] Chamando html2pdf no elemento do iframe...');
 
-iframeDoc.open();
-iframeDoc.write(`
-  <!DOCTYPE html>
-  <html>
-    <head>
-      <meta charset="UTF-8">
+    await html2pdf()
+      .set({
+        margin: 0,
+        filename: `Roteiro-Gramado-${nomeUsuario.replace(/\s/g, '_')}.pdf`,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.pdf-page-break' }
+      })
+      .from(targetElement)
+      .save();
 
-      <style>
-        html,
-        body {
-          margin: 0;
-          padding: 0;
-          background: #ffffff;
-          width: 794px;
-          min-height: 1123px;
-          overflow-x: hidden;
-        }
-
-        * {
-          box-sizing: border-box;
-        }
-
-        #pdf-root {
-          width: 794px;
-          margin: 0;
-          padding: 0;
-          background: #ffffff;
-        }
-
-        .pdf-page {
-          width: 794px;
-          min-height: 1123px;
-          margin: 0;
-          padding: 0;
-          background: #ffffff;
-          page-break-after: always;
-          overflow: hidden;
-        }
-
-        .pdf-page-break {
-          page-break-before: always;
-          break-before: page;
-        }
-      </style>
-    </head>
-
-    <body>
-      <div id="pdf-root">
-        ${html}
-      </div>
-    </body>
-  </html>
-`);
-iframeDoc.close();
-
-console.log('[PDF] Iframe criado, aguardando renderização...');
-
-await new Promise(resolve => setTimeout(resolve, 800));
-
-try {
-  const targetElement = iframeDoc.getElementById('pdf-root');
-
-  console.log('[PDF] Chamando html2pdf no elemento do iframe...');
-
-  await html2pdf()
-    .set({
-      margin: 0,
-      filename: `Roteiro-Gramado-${nomeUsuario.replace(/\s/g, '_')}.pdf`,
-
-      image: {
-        type: 'jpeg',
-        quality: 0.95
-      },
-
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        logging: false,
-
-        // ✅ Força o html2canvas a renderizar com largura A4
-        windowWidth: 794,
-        width: 794
-      },
-
-      jsPDF: {
-        unit: 'mm',
-        format: 'a4',
-        orientation: 'portrait'
-      },
-
-      pagebreak: {
-        mode: ['avoid-all', 'css', 'legacy'],
-        before: '.pdf-page-break'
-      }
-    })
-    .from(targetElement)
-    .save();
-
-  console.log('[PDF] PDF gerado com sucesso!');
-  showToast('PDF baixado!');
-
-  if (typeof track === 'function') {
-    track('pdf_baixado', {});
+    console.log('[PDF] PDF gerado com sucesso!');
+    showToast('PDF baixado!');
+    if (typeof track === 'function') track('pdf_baixado', {});
+  } catch (err) {
+    console.error('[PDF] Erro:', err);
+    showToast('Erro ao gerar PDF: ' + err.message);
+  } finally {
+    document.body.removeChild(iframe);
   }
-} catch (err) {
-  console.error('[PDF] Erro:', err);
-  showToast('Erro ao gerar PDF: ' + err.message);
-} finally {
-  document.body.removeChild(iframe);
 }
 
 /* ═══ RESTAURANTES ═══ */
