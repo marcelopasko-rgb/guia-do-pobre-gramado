@@ -694,7 +694,7 @@ async function baixarRoteiroPDF() {
 
   // HTML simples sem SVGs
   let html = `
-<div style="font-family:Arial,Helvetica,sans-serif;color:#222;width:680px;background:#fff;">
+<div style="font-family:Arial,Helvetica,sans-serif;color:#222;width:794px;background:#fff;">
   <div style="text-align:center;padding:320px 40px;background:#0a0a0a;color:#fff;">
     <div style="font-size:13px;color:#f0c020;font-weight:700;letter-spacing:4px;margin-bottom:24px;">GUIA DO POBRE EM GRAMADO</div>
     <div style="width:60px;height:3px;background:#f0c020;margin:0 auto 40px;"></div>
@@ -754,7 +754,7 @@ async function baixarRoteiroPDF() {
   iframe.style.position = 'fixed';
   iframe.style.top = '0';
   iframe.style.left = '0';
-  iframe.style.width = '60px';
+  iframe.style.width = '794px';
   iframe.style.height = '100vh';
   iframe.style.border = 'none';
   iframe.style.zIndex = '-9999';
