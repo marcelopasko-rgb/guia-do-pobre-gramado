@@ -833,12 +833,12 @@ const restaurantesSecretos = [
     cat: 'Buffet Livre',
     catIcon: '🍽️',
     e: '🇧🇷',
-    n: 'Itá Brasil',
+    n: 'Ita Brasil',
     selo: null,
-    faixa: 'Econômico',
+    faixa: 'Médio',
     preco: 'R$ 60 a R$ 80 por pessoa',
     desc: 'Um dos buffets mais tradicionais da cidade, muito frequentado por moradores locais — sinal de qualidade. Comida simples, honesta, farta e muito saborosa.',
-    publico: 'Se quer economizar de verdade no almoço para investir em um jantar mais caro, o Itá Brasil é a escolha perfeita.',
+    publico: 'Se quer economizar de verdade no almoço para investir em um jantar mais caro, o Ita Brasil é a escolha perfeita.',
     dica: null
   },
 
@@ -1059,7 +1059,7 @@ const restaurantesSecretos = [
     cat: 'Lanches Rápidos / Burgers',
     catIcon: '🍔',
     e: '🥙',
-    n: 'Skillo',
+    n: 'Gnomo Lanches',
     selo: null,
     faixa: 'Econômico',
     preco: 'R$ 40 a R$ 60 por pessoa',
@@ -1414,7 +1414,9 @@ const todasAtracoes = [
 function toggleAttrCard(el) {
   const card = el.parentElement;
   const isOpen = card.classList.contains('open');
-  document.querySelectorAll('.attr-card.open').forEach(c => c.classList.remove('open'));
+  // Fecha TODOS os cards abertos (attr-card normais E rest-secreto-card)
+  document.querySelectorAll('.attr-card.open, .rest-secreto-card.open').forEach(c => c.classList.remove('open'));
+  // Se o card clicado NÃO estava aberto, agora abre. Se estava, deixa fechado (toggle real).
   if (!isOpen) card.classList.add('open');
 }
 
