@@ -562,14 +562,12 @@ async function buildBonus() {
     return true;
   });
 
-  body.innerHTML = `
-    <div style="background:#1a1500;border:1px solid #3a2f08;border-radius:12px;padding:30px 40px;display:inline-block;text-align:left;">
-      <div style="font-size:12px;color:#999999;margin-bottom:8px;letter-spacing:1px;">PREPARADO PARA</div>
-      <div style="font-size:24px;font-weight:700;color:#f0c020;margin-bottom:20px;">${nomeUsuario}</div>
-      <div style="font-size:13px;color:#cccccc;margin-bottom:6px;">${totalDias} ${totalDias === 1 ? 'dia' : 'dias'} de roteiro</div>
-      <div style="font-size:13px;color:#cccccc;">Gerado em ${dataAtual}</div>
+     body.innerHTML = `
+    <div style="padding:14px 18px 12px;background:#1a1500;border-bottom:1px solid #2a2200;border-top:1px solid #2a2200;">
+      <p style="font-size:11px;color:#f0c020;font-weight:700;line-height:1.5;">✨ Bônus exclusivos pra quem quer economizar de verdade em Gramado.</p>
     </div>
     <div style="padding:14px;display:flex;flex-direction:column;gap:12px;">
+    
       ${itensVisiveis.map(item => {
         // Decidir qual botão mostrar baseado no que o usuário já comprou
         let botaoHTML = '';
