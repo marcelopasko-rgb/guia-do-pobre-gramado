@@ -732,7 +732,7 @@ async function baixarRoteiroPDF() {
   iframe.style.position = 'fixed';
   iframe.style.top = '0';
   iframe.style.left = '0';
-  iframe.style.width = '600px';
+  iframe.style.width = '60px';
   iframe.style.height = '100vh';
   iframe.style.border = 'none';
   iframe.style.zIndex = '-9999';
