@@ -670,7 +670,7 @@ async function baixarRoteiroPDF() {
         const localPart = user.email.split('@')[0].replace(/[._\-]/g, ' ');
         nomeUsuario = localPart.charAt(0).toUpperCase() + localPart.slice(1);
       }
-      console.log('[PDF] Nome detectado:', nomeUsuario);
+      console.log('[PDF] Nome detectado:', nomeUsuario); 
       }
     }
   } catch(e) {}
