@@ -823,7 +823,7 @@ const restaurantesSecretos = [
     e: '♨️',
     n: 'Aquecee',
     selo: null,
-    faixa: 'Médio',
+    faixa: 'Baixo',
     preco: 'R$ 35 a R$ 60 por pessoa',
     desc: 'Buffet muito bem servido, focado na culinária do dia a dia com um toque de sofisticação. Comida sempre fresca, quentinha e com ótima reposição.',
     publico: 'Perfeito para quem está batendo perna pelo centro e quer um almoço rápido, saboroso e com ambiente agradável e climatizado.',
@@ -1101,6 +1101,14 @@ function _faixaCor(faixa) {
   return '#71717a';
 }
 
+function _faixaCifrao(faixa) {
+  if (faixa === 'Econômico' || faixa === 'Baixo') return '$';
+  if (faixa === 'Médio')      return '$$';
+  if (faixa === 'Moderado Alto') return '$$$';
+  if (faixa === 'Luxo')       return '$$$$';
+  return '$';
+}
+
 function buildRestaurantesSecretos() {
   const body = document.getElementById('restaurantes-secretos-body');
   if (!body) return;
@@ -1150,8 +1158,8 @@ function buildRestaurantesSecretos() {
               ${seloHTML}
               <h5 class="rest-secreto-nome">${r.n}</h5>
               <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
-                <span style="font-size:10px;font-weight:700;color:${corFaixa};background:${corFaixa}22;padding:2px 7px;border-radius:5px;">${r.faixa}</span>
-                <span style="font-size:10px;color:#a0a0aa;">${r.preco}</span>
+                <span style="font-size:10px;font-weight:800;color:${corFaixa};background:${corFaixa}22;padding:2px 7px;border-radius:5px;letter-spacing:0.5px;">${_faixaCifrao(r.faixa)} <span style="font-weight:600;opacity:0.85;">${r.faixa}</span></span>
+                <span style="font-size:10px;color:#a0a0aa;display:inline-flex;align-items:center;gap:3px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:10px;height:10px;flex-shrink:0;"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>${r.preco}</span>
               </div>
             </div>
             <div class="attr-chevron" style="color:#71717a;">
