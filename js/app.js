@@ -563,8 +563,11 @@ async function buildBonus() {
   });
 
   body.innerHTML = `
-    <div style="padding:14px 18px 12px;background:#1a1500;border-bottom:1px solid #2a2200;border-top:1px solid #2a2200;">
-      <p style="font-size:11px;color:#f0c020;font-weight:700;line-height:1.5;">✨ Bônus exclusivos pra quem quer economizar de verdade em Gramado.</p>
+    <div style="background:#1a1500;border:1px solid #3a2f08;border-radius:12px;padding:30px 40px;display:inline-block;text-align:left;">
+      <div style="font-size:12px;color:#999999;margin-bottom:8px;letter-spacing:1px;">PREPARADO PARA</div>
+      <div style="font-size:24px;font-weight:700;color:#f0c020;margin-bottom:20px;">${nomeUsuario}</div>
+      <div style="font-size:13px;color:#cccccc;margin-bottom:6px;">${totalDias} ${totalDias === 1 ? 'dia' : 'dias'} de roteiro</div>
+      <div style="font-size:13px;color:#cccccc;">Gerado em ${dataAtual}</div>
     </div>
     <div style="padding:14px;display:flex;flex-direction:column;gap:12px;">
       ${itensVisiveis.map(item => {
@@ -685,7 +688,7 @@ async function baixarRoteiroPDF() {
     </div>
   </div>
   ${window._roteiroAtual.map(dia => `
-    <div style="padding:50px 40px;page-break-before:always;background:#fff;">
+    <div class="pdf-page-break" style="padding:50px 40px;background:#fff;">
       <div style="border-bottom:3px solid #f0c020;padding-bottom:20px;margin-bottom:30px;">
         <div style="font-size:12px;color:#f0c020;font-weight:700;letter-spacing:3px;">DIA ${dia.dia}</div>
         <div style="font-size:26px;font-weight:800;color:#0a0a0a;margin-top:8px;">${dia.titulo}</div>
@@ -700,7 +703,7 @@ async function baixarRoteiroPDF() {
             <td style="vertical-align:top;padding:14px 0 14px 12px;">
               <div style="font-weight:700;font-size:15px;color:#0a0a0a;margin-bottom:4px;">${atracao.n}</div>
               <div style="font-size:12px;color:#666;line-height:1.5;margin-bottom:8px;">${atracao.d}</div>
-              <span style="display:inline-block;background:${atracao.free ? '#dcfce7' : '#fef3c7'};color:${atracao.free ? '#166534' : '#92400e'};font-size:11px;font-weight:700;padding:4px 10px;border-radius:6px;">${atracao.v}</span>
+              <span style="background:${atracao.free ? '#dcfce7' : '#fef3c7'};color:${atracao.free ? '#166534' : '#92400e'};font-size:11px;font-weight:700;padding:5px 12px;border-radius:6px;white-space:nowrap;">${atracao.v}</span>
             </td>
           </tr>
         </table>
@@ -713,7 +716,7 @@ async function baixarRoteiroPDF() {
       ` : ''}
     </div>
   `).join('')}
-  <div style="text-align:center;padding:100px 40px;background:#0a0a0a;color:#fff;page-break-before:always;">
+  <div class="pdf-page-break" style="text-align:center;padding:100px 40px;background:#0a0a0a;color:#fff;">
     <div style="font-size:30px;font-weight:800;color:#f0c020;margin-bottom:20px;">Boa viagem!</div>
     <div style="font-size:14px;color:#bbb;line-height:1.7;max-width:420px;margin:0 auto 40px;">Esperamos que esse roteiro torne sua viagem a Gramado inesquecivel e economica.</div>
     <div style="width:40px;height:2px;background:#f0c020;margin:0 auto 40px;"></div>
@@ -760,7 +763,7 @@ async function baixarRoteiroPDF() {
           logging: false
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['css', 'legacy'] }
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'], before: '.pdf-page-break' }
       })
       .from(targetElement)
       .save();
