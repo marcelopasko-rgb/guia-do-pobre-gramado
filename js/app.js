@@ -167,6 +167,9 @@ function ensureBuilt(overlayId) {
       case 'overlay-bonus':
         buildBonus();
         break;
+      case 'overlay-restaurantes-secretos':
+        buildRestaurantesSecretos();
+        break;
     }
   } catch(e) {
     // Build falhou — remove da lista pra tentar de novo na próxima abertura
@@ -182,6 +185,7 @@ function closeOverlay(id){
     'overlay-restaurantes':'search-restaurantes',
     'overlay-atracoes':    'search-atracoes',
     'overlay-gratuitos':   'search-gratuitos',
+    'overlay-restaurantes-secretos': 'search-restaurantes-secretos',
   };
   if (searches[id]) {
     const inp = document.getElementById(searches[id]);
@@ -657,44 +661,29 @@ async function baixarRoteiroPDF() {
 
   let nomeUsuario = 'Viajante';
   try {
-    // Tenta usar a variável global currentUser primeiro (já está pronta no auth.js)
-    let user = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : null;
-    console.log('[PDF] currentUser global:', user?.email, 'metadata:', user?.user_metadata);
-
-    // Se não tem currentUser, busca via Supabase Auth
-    if (!user) {
-      const sb = window._supabase || window.supabase || window.supabaseClient;
-      console.log('[PDF] Cliente Supabase encontrado:', !!sb);
-      if (sb && sb.auth) {
-        const resp = await sb.auth.getUser();
-        user = resp?.data?.user || null;
-        console.log('[PDF] Resposta auth.getUser:', { hasUser: !!user, email: user?.email });
-      }
-    }
-
-    if (user) {
-      const meta = user.user_metadata || {};
-      console.log('[PDF] user_metadata completo:', meta);
+    const sb = window._supabase || window.supabase || window.supabaseClient;
+    if (sb) {
+      const { data: { user } } = await sb.auth.getUser();
+      if (user) {
+        const meta = user.user_metadata || {};
       const nomeRaw = meta.full_name || meta.display_name || meta.name || meta.nome || '';
-      console.log('[PDF] nomeRaw extraído:', nomeRaw);
       if (nomeRaw && nomeRaw.trim()) {
         nomeUsuario = nomeRaw.trim().split(' ')[0];
       } else if (user.email) {
         const localPart = user.email.split('@')[0].replace(/[._\-]/g, ' ');
         nomeUsuario = localPart.charAt(0).toUpperCase() + localPart.slice(1);
       }
+      console.log('[PDF] Nome detectado:', nomeUsuario); 
+      }
     }
-    console.log('[PDF] Nome FINAL:', nomeUsuario);
-  } catch(e) {
-    console.error('[PDF] Erro ao pegar nome:', e);
-  }
+  } catch(e) {}
 
   const dataAtual = new Date().toLocaleDateString('pt-BR');
   const totalDias = window._roteiroAtual.length;
 
   // HTML simples sem SVGs
   let html = `
-<div style="font-family:Arial,Helvetica,sans-serif;color:#222;width:794px;background:#fff;">
+<div style="font-family:Arial,Helvetica,sans-serif;color:#222;width:680px;background:#fff;">
   <div style="text-align:center;padding:320px 40px;background:#0a0a0a;color:#fff;">
     <div style="font-size:13px;color:#f0c020;font-weight:700;letter-spacing:4px;margin-bottom:24px;">GUIA DO POBRE EM GRAMADO</div>
     <div style="width:60px;height:3px;background:#f0c020;margin:0 auto 40px;"></div>
@@ -754,7 +743,7 @@ async function baixarRoteiroPDF() {
   iframe.style.position = 'fixed';
   iframe.style.top = '0';
   iframe.style.left = '0';
-  iframe.style.width = '794px';
+  iframe.style.width = '60px';
   iframe.style.height = '100vh';
   iframe.style.border = 'none';
   iframe.style.zIndex = '-9999';
@@ -799,6 +788,409 @@ async function baixarRoteiroPDF() {
   } finally {
     document.body.removeChild(iframe);
   }
+}
+
+/* ═══ RESTAURANTES SECRETOS (BÔNUS EXCLUSIVO) ═══ */
+const restaurantesSecretos = [
+  // ── BUFFET LIVRE ────────────────────────────────────────────────────────
+  {
+    cat: 'Buffet Livre',
+    catIcon: '🍽️',
+    e: '🥩',
+    n: 'Serra Grill',
+    selo: 'O MELHOR DA CIDADE',
+    faixa: 'Médio',
+    preco: 'R$ 75 a R$ 110 por pessoa',
+    desc: 'O topo da categoria em Gramado. Combina a praticidade do buffet com a qualidade de um bom churrasco gaúcho. Buffet vasto, mas o destaque são as carnes grelhadas servidas na mesa.',
+    publico: 'Ambiente amplo, ideal para famílias. Bem localizado, experiência gastronômica excelente para um almoço completo.',
+    dica: 'Chegue um pouco antes das 12h30 na alta temporada para evitar filas.'
+  },
+  {
+    cat: 'Buffet Livre',
+    catIcon: '🍽️',
+    e: '👵',
+    n: 'Sabor da Nonna',
+    selo: 'MELHOR CUSTO-BENEFÍCIO',
+    faixa: 'Econômico',
+    preco: 'R$ 45 a R$ 65 por pessoa',
+    desc: 'Aquela comida caseira com tempero de vó. Preço super justo para os padrões de Gramado, com variedade excelente de pratos quentes, saladas e carnes.',
+    publico: 'Porto seguro do turista que quer comer muito bem, pagar pouco e sentir o sabor da culinária local sem frescuras.',
+    dica: 'Não saia de lá sem provar as sobremesas caseiras incluídas no buffet.'
+  },
+  {
+    cat: 'Buffet Livre',
+    catIcon: '🍽️',
+    e: '♨️',
+    n: 'Aquecee',
+    selo: null,
+    faixa: 'Médio',
+    preco: 'R$ 35 a R$ 60 por pessoa',
+    desc: 'Buffet muito bem servido, focado na culinária do dia a dia com um toque de sofisticação. Comida sempre fresca, quentinha e com ótima reposição.',
+    publico: 'Perfeito para quem está batendo perna pelo centro e quer um almoço rápido, saboroso e com ambiente agradável e climatizado.',
+    dica: null
+  },
+  {
+    cat: 'Buffet Livre',
+    catIcon: '🍽️',
+    e: '🇧🇷',
+    n: 'Itá Brasil',
+    selo: null,
+    faixa: 'Econômico',
+    preco: 'R$ 60 a R$ 80 por pessoa',
+    desc: 'Um dos buffets mais tradicionais da cidade, muito frequentado por moradores locais — sinal de qualidade. Comida simples, honesta, farta e muito saborosa.',
+    publico: 'Se quer economizar de verdade no almoço para investir em um jantar mais caro, o Itá Brasil é a escolha perfeita.',
+    dica: null
+  },
+
+  // ── FONDUE ───────────────────────────────────────────────────────────────
+  {
+    cat: 'Sequência de Fondue',
+    catIcon: '🫕',
+    e: '🕯️',
+    n: 'Belle du Valais',
+    selo: 'O MELHOR DA CIDADE',
+    faixa: 'Luxo',
+    preco: 'R$ 350 a R$ 500 por pessoa',
+    desc: 'Um dos melhores restaurantes suíços do Brasil. Ambiente cinematográfico, à luz de velas, com piano ao fundo e atendimento impecável. Ingredientes premium (queijos e chocolates).',
+    publico: 'Não é apenas um jantar, é uma celebração. Perfeito para casais em lua de mel ou comemorações especiais.',
+    dica: 'Exige reserva antecipada. Vá sem pressa para curtir o ritual de cada etapa.'
+  },
+  {
+    cat: 'Sequência de Fondue',
+    catIcon: '🫕',
+    e: '🧀',
+    n: 'Versoi Fondue',
+    selo: 'MELHOR CUSTO-BENEFÍCIO',
+    faixa: 'Médio',
+    preco: 'R$ 110 a R$ 160 por pessoa',
+    desc: 'Entrega a verdadeira experiência do fondue de Gramado (ambiente aconchegante, sequência completa e fartura) por um preço que cabe no bolso. Atendimento ágil.',
+    publico: 'Escolha inteligente pra quem quer viver a noite do fondue tradicional, comer até se fartar, sem estourar o orçamento.',
+    dica: 'Fique atento às opções de reposição: trazem mais queijo, carne e chocolate sempre que pedir.'
+  },
+  {
+    cat: 'Sequência de Fondue',
+    catIcon: '🫕',
+    e: '🏔️',
+    n: "D'Montreux",
+    selo: null,
+    faixa: 'Baixo',
+    preco: 'R$ 60 a R$ 100 por pessoa',
+    desc: 'Ambiente acolhedor e intimista que remete aos chalés alpinos. Sequência de carnes com cortes selecionados e molhos artesanais muito elogiados.',
+    publico: 'Excelente meio-termo: foge do agito das grandes casas de fondue e foca em uma noite agradável e saborosa.',
+    dica: null
+  },
+  {
+    cat: 'Sequência de Fondue',
+    catIcon: '🫕',
+    e: '🍫',
+    n: 'Tomasini',
+    selo: null,
+    faixa: 'Médio',
+    preco: 'R$ 100 a R$ 150 por pessoa',
+    desc: 'No coração de Gramado, casa super tradicional. Fondue de chocolate é um dos favoritos dos turistas pela qualidade do chocolate artesanal da região.',
+    publico: 'Muito fácil de acessar a pé para quem está hospedado no centro. Excelente estrutura para receber famílias.',
+    dica: null
+  },
+
+  // ── ITALIANO / GALETERIA ─────────────────────────────────────────────────
+  {
+    cat: 'Italiano / Galeteria',
+    catIcon: '🍝',
+    e: '🍷',
+    n: 'Casa Muttoni',
+    selo: 'O MELHOR DA CIDADE',
+    faixa: 'Moderado Alto',
+    preco: 'R$ 200 a R$ 250 por pessoa',
+    desc: 'Imersão na alta gastronomia italiana. Massas de fabricação própria (artesanais e frescas), molhos ricos em sabor e acompanhamentos que elevam o nível.',
+    publico: 'Ambiente lindo e sofisticado. Esqueça a correria de galeteria tradicional; aqui o foco é saborear cada prato com um bom vinho.',
+    dica: 'O galeto ao primo canto deles é incrivelmente crocante por fora e suculento por dentro.'
+  },
+  {
+    cat: 'Italiano / Galeteria',
+    catIcon: '🍝',
+    e: '🍗',
+    n: 'Galeto Itália',
+    selo: 'MELHOR CUSTO-BENEFÍCIO',
+    faixa: 'Médio',
+    preco: 'R$ 90 a R$ 120 por pessoa',
+    desc: 'Clássico rodízio italiano da Serra Gaúcha onde a comida não para de chegar. Sopa de capeletti, galeto, costelinha, vários tipos de massas, polenta e maionese.',
+    publico: 'Vá com muita fome. Lugar perfeito para entender a fama da fartura gastronômica da região sem pagar uma fortuna.',
+    dica: 'A sopa de capeletti que abre os trabalhos é divina, mas guarde espaço para o que vem depois!'
+  },
+  {
+    cat: 'Italiano / Galeteria',
+    catIcon: '🍝',
+    e: '🍾',
+    n: 'Cantina di Capo',
+    selo: null,
+    faixa: 'Médio',
+    preco: 'R$ 85 a R$ 130 por pessoa (pratos pra compartilhar)',
+    desc: 'Cantina italiana charmosa, com decoração temática (garrafas de vinho, toalhas xadrez). À la carte, porções muito bem servidas.',
+    publico: 'Excelente para um jantar aconchegante. Lasanha e filé à parmegiana são os grandes destaques.',
+    dica: null
+  },
+  {
+    cat: 'Italiano / Galeteria',
+    catIcon: '🍝',
+    e: '👨‍👩‍👧',
+    n: 'Família Guimarães',
+    selo: null,
+    faixa: 'Médio',
+    preco: 'R$ 80 a R$ 120 por pessoa',
+    desc: 'Restaurante familiar focado no conforto e sabor tradicional. Pratos clássicos da culinária italiana com ingredientes frescos e muito capricho.',
+    publico: 'Ambiente tranquilo, atendimento acolhedor e pratos que servem muito bem duas ou mais pessoas.',
+    dica: null
+  },
+
+  // ── CHURRASCARIA ─────────────────────────────────────────────────────────
+  {
+    cat: 'Churrascaria / Costela',
+    catIcon: '🥩',
+    e: '🔥',
+    n: 'Chama de Fogo',
+    selo: 'O MELHOR DA CIDADE',
+    faixa: 'Luxo',
+    preco: 'R$ 220 a R$ 300 por pessoa',
+    desc: 'Rodízio de carnes nobres de altíssimo padrão (cortes Angus e Hereford, picanha premium, cordeiro, assado de tira). Buffet inclui frutos do mar e queijos finos.',
+    publico: 'A melhor experiência de churrasco da região. Serviço impecável — os garçons são extremamente atentos aos cortes de preferência.',
+    dica: 'Peça o ponto da carne exatamente como gosta; os assadores são mestres nisso.'
+  },
+  {
+    cat: 'Churrascaria / Costela',
+    catIcon: '🥩',
+    e: '🤠',
+    n: 'Churrascaria Gramadense',
+    selo: 'MELHOR CUSTO-BENEFÍCIO',
+    faixa: 'Médio',
+    preco: 'R$ 110 a R$ 150 por pessoa',
+    desc: 'Tradicionalismo e fartura. Espeto corrido completo com os principais cortes gaúchos, mais buffet de saladas honesto, por preço extremamente competitivo.',
+    publico: 'Quer comer o verdadeiro churrasco gaúcho, em ambiente familiar, sem frescura e com preço justo? Escolha certa.',
+    dica: null
+  },
+  {
+    cat: 'Churrascaria / Costela',
+    catIcon: '🥩',
+    e: '✨',
+    n: 'Gramado & Brasa',
+    selo: null,
+    faixa: 'Moderado Alto',
+    preco: 'R$ 140 a R$ 190 por pessoa',
+    desc: 'Churrascaria moderna que une o clássico espeto corrido com cortes contemporâneos. Ambiente bonito, bem iluminado e confortável.',
+    publico: 'Ótima localização e excelente buffet de saladas. Agrada quem foca nas carnes e quem gosta de bons acompanhamentos.',
+    dica: null
+  },
+  {
+    cat: 'Churrascaria / Costela',
+    catIcon: '🥩',
+    e: '🛞',
+    n: 'Churrascaria Roda de Carroça',
+    selo: null,
+    faixa: 'Médio',
+    preco: 'R$ 120 a R$ 160 por pessoa',
+    desc: 'Imersão na cultura gaúcha. Ambiente rústico remete às tradições do campo, e o forte aqui é o costelão 12 horas e os cortes tradicionais assados na brasa.',
+    publico: 'Perfeito para quem busca atmosfera mais rústica e cultural durante a refeição.',
+    dica: null
+  },
+
+  // ── PIZZARIA ─────────────────────────────────────────────────────────────
+  {
+    cat: 'Pizzaria',
+    catIcon: '🍕',
+    e: '🪵',
+    n: 'Forneria 847',
+    selo: 'O MELHOR DA CIDADE',
+    faixa: 'Médio',
+    preco: 'R$ 100 a R$ 130 por pessoa',
+    desc: 'Pizzas artesanais de massa leve (longa fermentação) e ingredientes selecionados de alta qualidade. Estilo napolitano, assada em forno de alta temperatura.',
+    publico: 'Se prefere qualidade à quantidade e quer fugir da agitação dos rodízios, a Forneria oferece ambiente descolado e pizzas sofisticadas.',
+    dica: 'Harmonize a pizza com os coquetéis da casa ou uma cerveja artesanal local.'
+  },
+  {
+    cat: 'Pizzaria',
+    catIcon: '🍕',
+    e: '🔁',
+    n: 'Scur Pizzaria',
+    selo: 'MELHOR CUSTO-BENEFÍCIO',
+    faixa: 'Médio',
+    preco: 'R$ 90 a R$ 130 por pessoa',
+    desc: 'Rodízio de pizza mais famoso e tradicional de Gramado. Dezenas de sabores passando sem parar (salgadas e doces), massa fina, muito recheio + buffet de massas e petiscos.',
+    publico: 'Diversão e fartura garantidas para toda a família. Serviço rápido e custo-benefício imbatível na categoria de rodízio.',
+    dica: null
+  },
+  {
+    cat: 'Pizzaria',
+    catIcon: '🍕',
+    e: '🦒',
+    n: 'Kongo Pizzaria',
+    selo: 'MELHOR EXPERIÊNCIA TEMÁTICA',
+    faixa: 'Moderado Alto',
+    preco: 'R$ 160 a R$ 190 por pessoa',
+    desc: 'Imersão na selva do Congo. Decorada como floresta tropical, com animais animatrônicos, sons da natureza e pocket shows teatrais a cada hora.',
+    publico: 'Obrigatório se está viajando com crianças. Experiência visual e entretenimento compensam cada centavo.',
+    dica: 'Chegue cedo ou faça reserva antecipada no site para evitar as gigantescas filas na porta.'
+  },
+  {
+    cat: 'Pizzaria',
+    catIcon: '🍕',
+    e: '🌲',
+    n: 'The Petit (Canela)',
+    selo: null,
+    faixa: 'Médio',
+    preco: 'R$ 70 a R$ 100 por pessoa',
+    desc: 'Na cidade vizinha Canela. Pizzaria super charmosa e aconchegante. Ambiente intimista e pizzas com combinações criativas.',
+    publico: 'Excelente desculpa para esticar o passeio até Canela no fim do dia e jantar em um lugar acolhedor.',
+    dica: null
+  },
+
+  // ── LANCHES / BURGERS ────────────────────────────────────────────────────
+  {
+    cat: 'Lanches Rápidos / Burgers',
+    catIcon: '🍔',
+    e: '🐶',
+    n: 'Cusco Burger',
+    selo: 'MELHOR CUSTO-BENEFÍCIO',
+    faixa: 'Econômico',
+    preco: 'R$ 45 a R$ 65 por pessoa',
+    desc: 'Hamburgueres artesanais premium com identidade gaúcha ("Cusco" é gíria local para cachorro). Carnes altas, suculentas, grelhadas no fogo, excelentes combinações de queijos.',
+    publico: 'Burgers com qualidade de metrópole, mas com alma da Serra Gaúcha. Preço excelente pela qualidade gourmet.',
+    dica: 'Peça a batata rústica com tempero da casa para acompanhar.'
+  },
+  {
+    cat: 'Lanches Rápidos / Burgers',
+    catIcon: '🍔',
+    e: '🥙',
+    n: 'Skillo',
+    selo: null,
+    faixa: 'Econômico',
+    preco: 'R$ 40 a R$ 60 por pessoa',
+    desc: 'Lanchonete mais tradicional do centro de Gramado. Grande destaque é o autêntico Xis Gaúcho — sanduíche gigante prensado que vale por uma refeição completa.',
+    publico: 'Se não é do RS, precisa provar o "Xis". Fica bem na avenida principal, perfeito para observar o movimento da cidade.',
+    dica: null
+  },
+  {
+    cat: 'Lanches Rápidos / Burgers',
+    catIcon: '🍔',
+    e: '🦅',
+    n: 'Águia Lanches',
+    selo: null,
+    faixa: 'Econômico',
+    preco: 'R$ 35 a R$ 55 por pessoa',
+    desc: 'Outro gigante dos lanches tradicionais e do Xis. Perfeito para um lanche rápido na madrugada ou fim de noite. Porções generosas, maionese caseira artesanal deliciosa.',
+    publico: 'Ambiente simples, focado em sabor, rapidez e fartura. Muito procurado por quem quer fugir dos preços turísticos do centro.',
+    dica: null
+  },
+  {
+    cat: 'Lanches Rápidos / Burgers',
+    catIcon: '🍔',
+    e: '🍟',
+    n: "McDonald's de Gramado",
+    selo: null,
+    faixa: 'Econômico',
+    preco: 'R$ 35 a R$ 55 por pessoa',
+    desc: 'Cardápio padrão mundial, mas com um diferencial único: a arquitetura. A unidade de Gramado parece um chalé europeu alpino de madeira, super fotogênico.',
+    publico: 'Ideal pra quem viaja com crianças que não abrem mão do McLanche Feliz, ou pra aquele lanche rápido. Vale a visita só pela fachada!',
+    dica: null
+  },
+];
+
+function _faixaCor(faixa) {
+  if (faixa === 'Econômico' || faixa === 'Baixo') return '#22c55e';
+  if (faixa === 'Médio')      return '#f0c020';
+  if (faixa === 'Moderado Alto') return '#fb923c';
+  if (faixa === 'Luxo')       return '#a855f7';
+  return '#71717a';
+}
+
+function buildRestaurantesSecretos() {
+  const body = document.getElementById('restaurantes-secretos-body');
+  if (!body) return;
+
+  // Agrupar por categoria
+  const grupos = {};
+  restaurantesSecretos.forEach(r => {
+    if (!grupos[r.cat]) grupos[r.cat] = { icon: r.catIcon, items: [] };
+    grupos[r.cat].items.push(r);
+  });
+
+  let html = `
+    <div style="padding:14px 18px 12px;background:#1a1500;border-bottom:1px solid #2a2200;border-top:1px solid #2a2200;">
+      <p style="font-size:11px;color:#f0c020;font-weight:700;line-height:1.5;">🔒 Lista exclusiva para quem comprou o Bônus do Pobre. Economize até R$ 500/dia em Gramado!</p>
+    </div>
+  `;
+
+  Object.keys(grupos).forEach(cat => {
+    const g = grupos[cat];
+    html += `
+      <div style="padding:18px 16px 6px;background:#0d0d0d;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">${g.icon}</span>
+          <span style="font-size:11px;font-weight:800;color:#f0c020;letter-spacing:1.5px;text-transform:uppercase;">${cat}</span>
+          <span style="font-size:10px;color:#71717a;font-weight:600;margin-left:auto;">${g.items.length} ${g.items.length === 1 ? 'opção' : 'opções'}</span>
+        </div>
+      </div>
+    `;
+
+    g.items.forEach((r, idx) => {
+      const corFaixa = _faixaCor(r.faixa);
+      const seloHTML = r.selo
+        ? `<div style="display:inline-block;background:linear-gradient(135deg,#f0c020,#d4a017);color:#1a1500;font-size:9px;font-weight:900;padding:3px 8px;border-radius:999px;letter-spacing:0.5px;margin-bottom:8px;">⭐ ${r.selo}</div>`
+        : '';
+      const dicaHTML = r.dica
+        ? `<div style="margin-top:10px;background:rgba(240,192,32,0.08);border-left:3px solid #f0c020;padding:9px 12px;border-radius:6px;">
+            <div style="font-size:9.5px;font-weight:800;color:#f0c020;letter-spacing:1px;margin-bottom:3px;">💡 DICA DE OURO</div>
+            <div style="font-size:11.5px;color:#cccccc;line-height:1.55;">${r.dica}</div>
+          </div>`
+        : '';
+
+      html += `
+        <div class="rest-secreto-card" data-search="${(r.n + ' ' + r.cat + ' ' + r.desc).toLowerCase()}">
+          <div class="rest-secreto-header" onclick="toggleAttrCard(this)">
+            <div class="rest-secreto-emoji">${r.e}</div>
+            <div class="rest-secreto-main">
+              ${seloHTML}
+              <h5 class="rest-secreto-nome">${r.n}</h5>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:3px;flex-wrap:wrap;">
+                <span style="font-size:10px;font-weight:700;color:${corFaixa};background:${corFaixa}22;padding:2px 7px;border-radius:5px;">${r.faixa}</span>
+                <span style="font-size:10px;color:#a0a0aa;">${r.preco}</span>
+              </div>
+            </div>
+            <div class="attr-chevron" style="color:#71717a;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+          </div>
+          <div class="attr-details">
+            <div class="attr-detail-row">
+              <div class="attr-detail-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+              </div>
+              <span class="attr-detail-text">${r.desc}</span>
+            </div>
+            <div class="attr-detail-row">
+              <div class="attr-detail-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <span class="attr-detail-text"><strong style="color:#f0c020;">Para o viajante:</strong> ${r.publico}</span>
+            </div>
+            ${dicaHTML}
+          </div>
+        </div>
+      `;
+    });
+  });
+
+  body.innerHTML = html;
+}
+
+function filterRestaurantesSecretos(q) {
+  const cards = document.querySelectorAll('#restaurantes-secretos-body .rest-secreto-card');
+  let found = 0;
+  cards.forEach(card => {
+    const text = card.dataset.search || card.textContent.toLowerCase();
+    const match = !q || text.includes(q);
+    card.style.display = match ? '' : 'none';
+    if (match) found++;
+  });
+  showEmpty('restaurantes-secretos-body', found === 0 && q);
 }
 
 /* ═══ RESTAURANTES ═══ */
@@ -1421,6 +1813,7 @@ function handleSearch(input) {
     'search-restaurantes':filterRestaurantes,
     'search-atracoes':    filterAtracoes,
     'search-gratuitos':   filterGratuitos,
+    'search-restaurantes-secretos': filterRestaurantesSecretos,
   };
   if (overlayMap[input.id]) overlayMap[input.id](val);
 }
