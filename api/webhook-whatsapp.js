@@ -11,22 +11,14 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    // 1. Valida o token de segurança
     const tokenRecebido = req.query.token;
-    console.log("[webhook] token recebido:", tokenRecebido);
-    console.log("[webhook] token esperado:", process.env.KIWIFY_TOKEN);
-
     if (tokenRecebido !== process.env.KIWIFY_TOKEN) {
-      console.log("[webhook] TOKEN INVÁLIDO - bloqueando");
       return res.status(401).send("Token inválido");
     }
 
-    // 2. Lê o payload
     const payload = req.body;
     const evento = payload.webhook_event_type;
-    console.log("[webhook] evento:", evento);
 
-    // 3. Extrai dados do cliente
     const nomeCompleto = payload.Customer?.full_name || payload.Customer?.first_name || "";
     const primeiroNome = nomeCompleto.split(" ")[0] || "amigo(a)";
     const email = payload.Customer?.email || null;
@@ -36,27 +28,16 @@ module.exports = async function handler(req, res) {
     const orderId = payload.order_id || payload.id || null;
     const codigoPix = payload.pix_code || payload.payment?.pix_code || null;
 
-    console.log("[webhook] telefone:", telefone);
-    console.log("[webhook] nome:", primeiroNome);
-
-    // 4. Monta mensagem conforme o evento
     const mensagem = montarMensagem(evento, primeiroNome, codigoPix);
-    console.log("[webhook] mensagem montada:", mensagem ? "sim" : "null (evento ignorado)");
 
-    // 5. Envia WhatsApp (se tem telefone e mensagem)
     let whatsappEnviado = false;
     let whatsappResposta = null;
 
     if (telefone && mensagem) {
       whatsappResposta = await enviarWhatsApp(telefone, mensagem);
       whatsappEnviado = !whatsappResposta.error;
-      console.log("[webhook] whatsapp enviado:", whatsappEnviado);
-      console.log("[webhook] resposta z-api:", JSON.stringify(whatsappResposta));
-    } else {
-      console.log("[webhook] WhatsApp NÃO enviado - telefone:", telefone, "| mensagem:", mensagem ? "ok" : "null");
     }
 
-    // 6. Salva no Supabase
     await salvarSupabase({
       evento,
       order_id: orderId,
@@ -71,33 +52,31 @@ module.exports = async function handler(req, res) {
       payload_completo: payload,
     });
 
-    return res.status(200).json({
-      ok: true,
-      evento,
-      whatsapp_enviado: whatsappEnviado,
-    });
+    return res.status(200).json({ ok: true, evento, whatsapp_enviado: whatsappEnviado });
   } catch (err) {
-    console.error("[webhook] ERRO GERAL:", err.message);
+    console.error("[webhook] ERRO:", err.message);
     return res.status(500).json({ ok: false, erro: err.message });
   }
 };
 
 // =====================================================
 // Mensagens por evento
+// Nomes reais usados pela Kiwify:
+// order_approved, abandoned_cart, waiting_payment, refunded, chargeback
 // =====================================================
 
 function montarMensagem(evento, nome, codigoPix) {
   switch (evento) {
-    case "compra_aprovada":
+    case "order_approved":
       return `Olá, ${nome}! 😊 Aqui é o Marcelo, do Guia do Pobre em Gramado.\n\nSua compra foi aprovada! 🎉\n\nAcesse seu app pelo link:\nhttps://guia-do-pobre-gramado.vercel.app/\n\nPara fazer login, use o mesmo e-mail da compra. Se não conseguir clicar no link acima, salve meu número nos contatos e tente novamente.\n\nBoa viagem e aproveite os cupons para economizar! 🥰`;
 
-    case "carrinho_abandonado":
+    case "abandoned_cart":
       return `Oi ${nome}, aqui é o Marcelo do Guia do Pobre em Gramado.\n\nVi que você chegou no checkout do guia mas não finalizou. Aconteceu alguma coisa? Foi dúvida sobre o conteúdo, problema no pagamento, ou só decidiu deixar pra depois mesmo?\n\nTô aqui se quiser tirar qualquer dúvida antes de decidir. Sem pressão.`;
 
-    case "pix_gerado":
+    case "waiting_payment":
       return `Oi ${nome}, Marcelo aqui do Guia do Pobre em Gramado.\n\nSeu PIX foi gerado e tá esperando pagamento.\n\nSó um lembrete: PIX da Kiwify expira em algumas horas, então se ainda tem interesse, recomendo finalizar agora pra não precisar gerar de novo.\n\nAssim que o pagamento cair, o acesso é liberado automaticamente no seu e-mail.\n\n${codigoPix ? `Código PIX:\n${codigoPix}\n\n` : ""}Qualquer problema pra pagar, me chama.`;
 
-    case "compra_reembolsada":
+    case "refunded":
     case "chargeback":
       return `Olá ${nome}, aqui é o Marcelo do Guia do Pobre em Gramado.\n\nIdentifiquei que sua compra foi reembolsada e seu acesso ao guia foi removido.\n\nSem problema nenhum, faz parte. Mas se puder me contar rapidamente o que não atendeu sua expectativa, vou levar a sério e usar pra melhorar o produto. Seu feedback vale muito.\n\nSe foi algum engano ou problema técnico que dá pra resolver, também me avisa.\n\nObrigado!`;
 
@@ -120,9 +99,6 @@ function limparTelefone(tel) {
 async function enviarWhatsApp(telefone, mensagem) {
   const url = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`;
 
-  console.log("[zapi] URL:", url);
-  console.log("[zapi] Client-Token presente:", !!process.env.ZAPI_CLIENT_TOKEN);
-
   try {
     const resp = await fetch(url, {
       method: "POST",
@@ -132,12 +108,8 @@ async function enviarWhatsApp(telefone, mensagem) {
       },
       body: JSON.stringify({ phone: telefone, message: mensagem }),
     });
-    const json = await resp.json();
-    console.log("[zapi] status HTTP:", resp.status);
-    console.log("[zapi] resposta:", JSON.stringify(json));
-    return json;
+    return await resp.json();
   } catch (err) {
-    console.error("[zapi] ERRO fetch:", err.message);
     return { error: err.message };
   }
 }
