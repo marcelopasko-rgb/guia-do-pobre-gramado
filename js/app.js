@@ -509,7 +509,7 @@ const bonusUpsells = [
     titulo: 'Roteiro Versão PDF',
     desc: 'Tenha uma versão completa do seu Roteiro Personalizado em PDF para mandar no grupo da família ou para utilizar em locais onde a internet não pega em Gramado.',
     preco: 'R$ 17,00',
-    url: 'pay.kiwify.com.br/...',
+    url: 'https://pay.kiwify.com.br/d6oo51Z',
     destaque: false
   },
   {
@@ -517,16 +517,16 @@ const bonusUpsells = [
     titulo: 'Restaurantes Secretos Custo-Benefício',
     desc: 'Lista completa dos melhores restaurantes custo-benefício que te farão economizar até R$ 500 por dia em Gramado.',
     preco: 'R$ 17,00',
-    url: 'pay.kiwify.com.br/...',
+    url: 'https://pay.kiwify.com.br/c1vrZ26',
     destaque: false
   },
   {
     icon: 'economia',
     titulo: 'Combo: Roteiro PDF + Restaurantes Secretos',
     desc: 'Os dois bônus acima juntos por um preço especial. Economize comprando o combo.',
-    preco: 'R$ 24,00',
+    preco: 'R$ 19,90',
     de: 'R$ 34,00',
-    url: 'pay.kiwify.com.br/...',
+    url: 'https://pay.kiwify.com.br/HLyKiza',
     destaque: true
   }
 ];
@@ -1089,6 +1089,130 @@ const restaurantesSecretos = [
     preco: 'R$ 35 a R$ 55 por pessoa',
     desc: 'Cardápio padrão mundial, mas com um diferencial único: a arquitetura. A unidade de Gramado parece um chalé europeu alpino de madeira, super fotogênico.',
     publico: 'Ideal pra quem viaja com crianças que não abrem mão do McLanche Feliz, ou pra aquele lanche rápido. Vale a visita só pela fachada!',
+    dica: null
+  },
+
+  // ── CAFETERIAS ───────────────────────────────────────────────────────────
+  {
+    cat: 'Cafeterias',
+    catIcon: '☕',
+    e: '☕',
+    n: 'Quiero Café',
+    selo: 'MELHOR CUSTO-BENEFÍCIO',
+    faixa: 'Médio',
+    preco: 'R$ 35 a R$ 60 por pessoa',
+    desc: 'Cardápio gigantesco que atende desde o café da manhã até o jantar. Ótimos combos de café, lanches, waffles, doces e pratos expressos com preço muito competitivo para a região.',
+    publico: 'Ambiente moderno, atendimento rápido e ótimo para quem quer comer bem sem gastar muito. Abre cedo e fecha tarde — um verdadeiro coringa na viagem.',
+    dica: null
+  },
+  {
+    cat: 'Cafeterias',
+    catIcon: '☕',
+    e: '🧙‍♀️',
+    n: 'Casa da Velha Bruxa',
+    selo: null,
+    faixa: 'Moderado Alto',
+    preco: 'R$ 55 a R$ 90 por pessoa',
+    desc: 'Uma das docerias mais tradicionais e nostálgicas de Gramado, bem ao lado da Rua Torta. Famosa pelas sobremesas históricas feitas com chocolate artesanal Prawer, como o ícone "Sorvete ao Forno" e os waffles com calda quente.',
+    publico: 'Clássico da cidade, mas o preço acompanha a fama e a localização. Vale mais pela experiência histórica e pelo ponto turístico do que pelo custo-benefício puro.',
+    dica: 'As sobremesas e cafés aqui têm valor de grife — vá ciente disso. Foque no famoso "Sorvete ao Forno" para uma única indulgência inesquecível.'
+  },
+  {
+    cat: 'Cafeterias',
+    catIcon: '☕',
+    e: '⛪',
+    n: 'Padaria São Pedro',
+    selo: null,
+    faixa: 'Moderado Alto',
+    preco: 'R$ 40 a R$ 70 por pessoa',
+    desc: 'Localizada estrategicamente bem atrás da Igreja Matriz São Pedro. Oferece enorme variedade de salgados, folhados, tortas e as famosas cucas gaúchas frescas.',
+    publico: 'Por estar no ponto mais central e movimentado de Gramado, os preços são inflacionados. Vale pela conveniência de um lanche rápido entre um ponto turístico e outro — não espere preço de "padaria de bairro".',
+    dica: null
+  },
+
+  // ── RECREAÇÃO / ESPAÇO KIDS ──────────────────────────────────────────────
+  {
+    cat: 'Recreação / Espaço Kids',
+    catIcon: '🧸',
+    e: '🏰',
+    n: 'Restaurante Höppner',
+    selo: 'O MELHOR DA CIDADE',
+    faixa: 'Luxo',
+    preco: 'R$ 150 a R$ 250 por pessoa',
+    desc: 'Junto ao tradicional Hotel Ritta Höppner, é sinônimo de elegância. Serve o clássico café da tarde inglês e pratos alemães impecáveis. O espaço kids é de altíssimo padrão, com monitoria e brinquedos lúdicos.',
+    publico: 'Uma das experiências mais acolhedoras da cidade para quem viaja com crianças pequenas, unindo alta gastronomia com sossego para os pais.',
+    dica: null
+  },
+  {
+    cat: 'Recreação / Espaço Kids',
+    catIcon: '🧸',
+    e: '🍝',
+    n: 'Mamma Mia',
+    selo: 'MELHOR CUSTO-BENEFÍCIO',
+    faixa: 'Médio',
+    preco: 'R$ 95 a R$ 130 por pessoa',
+    desc: 'Uma das galeterias mais famosas da região. A fartura de massas, galetos e polentinhas agrada muito o paladar infantil. A unidade de Gramado tem um excelente espaço kids estruturado para os pequenos gastarem energia.',
+    publico: 'Perfeito para o clássico e farto almoço de domingo em família.',
+    dica: null
+  },
+  {
+    cat: 'Recreação / Espaço Kids',
+    catIcon: '🧸',
+    e: '🍇',
+    n: 'Campo & Vinho',
+    selo: null,
+    faixa: 'Econômico',
+    preco: 'R$ 60 a R$ 110 por pessoa',
+    desc: 'Super versátil. Durante o dia entrega um buffet livre completo com ótimo preço; à noite o foco vira as pizzas. Conta com uma área kids muito bem montada para entreter as crianças durante a refeição.',
+    publico: 'Opção prática, sem frescuras e muito cômoda para qualquer hora do dia.',
+    dica: 'Aproveite o melhor dos dois mundos: vá pra um almoço de buffet em família e volte outro dia pra noite de pizza.'
+  },
+  {
+    cat: 'Recreação / Espaço Kids',
+    catIcon: '🧸',
+    e: '🥩',
+    n: 'Steak House — Carne & Osso',
+    selo: null,
+    faixa: 'Moderado Alto',
+    preco: 'R$ 120 a R$ 180 por pessoa',
+    desc: 'Especializada em cortes de carnes premium, assados na brasa com muita precisão. Ambiente moderno e espaço kids seguro e estruturado para receber as famílias.',
+    publico: 'Ótima pedida para quem quer saborear uma carne de primeira linha enquanto os filhos brincam no espaço recreativo.',
+    dica: null
+  },
+  {
+    cat: 'Recreação / Espaço Kids',
+    catIcon: '🧸',
+    e: '🔥',
+    n: 'El Fuego',
+    selo: null,
+    faixa: 'Moderado Alto',
+    preco: 'R$ 130 a R$ 220 por pessoa',
+    desc: 'Restaurante tradicional bem no centro de Gramado, famoso por carnes e pela sequência de fondue. Possui área infantil planejada para que os pais consigam curtir o jantar (especialmente o ritual do fondue) com calma.',
+    publico: 'Localização imbatível no centro e excelente estrutura familiar.',
+    dica: null
+  },
+  {
+    cat: 'Recreação / Espaço Kids',
+    catIcon: '🧸',
+    e: '🌲',
+    n: 'The Petit',
+    selo: null,
+    faixa: 'Médio',
+    preco: 'R$ 70 a R$ 100 por pessoa',
+    desc: 'O ambiente acolhedor e intimista da Petit reserva um cantinho especial para os pequenos. Enquanto as pizzas de massa leve são servidas, as crianças têm espaço dedicado para se distrair.',
+    publico: 'Ótima opção para quem busca ambiente confortável com espaço kids, sem a aglomeração dos grandes rodízios.',
+    dica: null
+  },
+  {
+    cat: 'Recreação / Espaço Kids',
+    catIcon: '🧸',
+    e: '🍽️',
+    n: 'Dos Cocina',
+    selo: null,
+    faixa: 'Moderado Alto',
+    preco: 'R$ 120 a R$ 190 por pessoa',
+    desc: 'Pratos sofisticados, apresentações lindas e cardápio muito bem executado. O grande diferencial é conseguir aliar essa proposta gastronômica mais moderna com ótimo atendimento e espaço para crianças.',
+    publico: 'Ideal para os pais que não querem abrir mão de um jantar gastronômico sofisticado, mas precisam da comodidade de uma área infantil.',
     dica: null
   },
 ];
