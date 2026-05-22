@@ -1,11 +1,12 @@
 // /api/criar-senha.js
-// Cria/atualiza a senha do usuário no Supabase Auth.
+// Define/atualiza a senha do usuário no Supabase Auth.
+// Também marca `senha_definida = true` em `perfis_usuarios` (fonte da verdade).
 //
 // Fluxo:
 //   1. Recebe { email, senha } via POST
-//   2. Busca o usuário no auth.users (com fallback de paginação)
-//   3. Se existe → updateUserById com a nova senha
-//   4. Se NÃO existe → 404 (não criamos do nada, é segurança)
+//   2. Busca o usuário no auth.users
+//   3. Se existe: atualiza senha + marca perfis_usuarios.senha_definida = true
+//   4. Se NÃO existe: 404
 //
 // Variáveis de ambiente:
 //   - SUPABASE_URL
@@ -46,6 +47,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Servidor mal configurado' });
     }
 
+    // 1. Buscar usuário
     const user = await buscarUsuarioPorEmail(supabaseUrl, supabaseKey, email);
 
     if (!user) {
@@ -54,7 +56,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // Atualiza senha do usuário existente
+    // 2. Atualizar senha no auth.users
     const updateRes = await fetch(
       `${supabaseUrl}/auth/v1/admin/users/${user.id}`,
       {
@@ -77,6 +79,32 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Erro ao salvar senha. Tente de novo.' });
     }
 
+    // 3. Marcar senha_definida = true em perfis_usuarios
+    // Se a marcação falhar, NÃO devolvemos erro pro usuário — a senha já está
+    // salva no Auth (que é o que importa). Logamos pra debug.
+    try {
+      const markRes = await fetch(
+        `${supabaseUrl}/rest/v1/perfis_usuarios?user_id=eq.${user.id}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json',
+            'Prefer': 'return=minimal',
+          },
+          body: JSON.stringify({ senha_definida: true }),
+        }
+      );
+
+      if (!markRes.ok) {
+        const errText = await markRes.text();
+        console.warn('[criar-senha] Aviso: senha salva no Auth mas falhou ao marcar perfil:', markRes.status, errText);
+      }
+    } catch (e) {
+      console.warn('[criar-senha] Aviso: exception ao marcar perfil:', e.message);
+    }
+
     console.log('[criar-senha] Senha definida para:', email);
     return res.status(200).json({ ok: true });
 
@@ -86,11 +114,6 @@ export default async function handler(req, res) {
   }
 }
 
-/**
- * Busca usuário pelo email com fallback de paginação.
- * Idêntica à de checar-acesso.js — copiada para manter cada endpoint
- * autocontido (Vercel serverless não compartilha facilmente entre files).
- */
 async function buscarUsuarioPorEmail(supabaseUrl, supabaseKey, email) {
   const baseHeaders = {
     'apikey': supabaseKey,
