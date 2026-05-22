@@ -6,10 +6,8 @@
 //   { existe: true,  tem_senha: false }  → usuário sem senha → tela de criar senha
 //   { existe: false }                    → não comprou ainda → erro pro usuário
 //
-// Estratégia de busca (em ordem):
-//   1. Tenta filtro server-side: GET /auth/v1/admin/users?email=...
-//   2. Se não voltou nada, faz paginação manual em até 5 páginas (5000 users)
-//   3. Como último fallback, considera não existente
+// Fonte da verdade pro `tem_senha`: coluna `senha_definida` em `perfis_usuarios`.
+// Mais confiável que adivinhar pelas identities do Supabase Auth.
 //
 // Variáveis de ambiente:
 //   - SUPABASE_URL
@@ -41,40 +39,45 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Servidor mal configurado' });
     }
 
+    // 1. Buscar usuário no auth.users
     const user = await buscarUsuarioPorEmail(supabaseUrl, supabaseKey, email);
 
     if (!user) {
       console.log('[checar-acesso] Usuário não encontrado:', email);
-      // Pequeno delay para dificultar enumeração via brute force
       await new Promise(r => setTimeout(r, 400));
       return res.status(200).json({ existe: false });
     }
 
-    // Detecta se já tem senha: usuários criados via OTP têm identity 'email'
-    // mas sem encrypted_password. Heurística: checa se há provider 'email' E
-    // se a coluna last_sign_in_at via password existe. Como a API não expõe
-    // isso diretamente, usamos uma checagem por tentativa de login com senha
-    // dummy seria custosa — então mantemos a heurística por identities, mas
-    // adicionamos um sinal extra: app_metadata.providers.
-    const identities = user.identities || [];
-    const providersMeta = user.app_metadata?.providers || [];
-    const provedores = new Set([
-      ...identities.map(i => i.provider),
-      ...providersMeta,
-    ]);
-    const temIdentidadeEmail = provedores.has('email');
+    // 2. Consultar a coluna senha_definida em perfis_usuarios
+    let temSenha = false;
+    try {
+      const perfilRes = await fetch(
+        `${supabaseUrl}/rest/v1/perfis_usuarios?user_id=eq.${user.id}&select=senha_definida`,
+        {
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+          },
+        }
+      );
 
-    console.log('[checar-acesso] Encontrado:', {
-      email,
-      id: user.id,
-      providers: Array.from(provedores),
-      tem_senha: temIdentidadeEmail,
-    });
+      if (perfilRes.ok) {
+        const rows = await perfilRes.json();
+        if (rows && rows.length > 0) {
+          temSenha = !!rows[0].senha_definida;
+        }
+      } else {
+        console.warn('[checar-acesso] Erro ao consultar perfil:', perfilRes.status);
+      }
+    } catch (e) {
+      console.warn('[checar-acesso] Exception ao consultar perfil:', e.message);
+    }
+
+    console.log('[checar-acesso] OK:', { email, id: user.id, tem_senha: temSenha });
 
     return res.status(200).json({
       existe: true,
-      tem_senha: temIdentidadeEmail,
-      user_id: user.id, // ajuda o criar-senha a não precisar buscar de novo
+      tem_senha: temSenha,
     });
 
   } catch (err) {
@@ -84,8 +87,7 @@ export default async function handler(req, res) {
 }
 
 /**
- * Busca usuário pelo email. Tenta filtro server-side e cai pra paginação
- * manual se necessário (algumas versões do Supabase ignoram o filtro ?email=).
+ * Busca usuário pelo email com fallback de paginação.
  */
 async function buscarUsuarioPorEmail(supabaseUrl, supabaseKey, email) {
   const baseHeaders = {
@@ -93,7 +95,7 @@ async function buscarUsuarioPorEmail(supabaseUrl, supabaseKey, email) {
     'Authorization': `Bearer ${supabaseKey}`,
   };
 
-  // 1. Tenta filtro server-side primeiro (mais rápido)
+  // 1. Tenta filtro server-side primeiro
   try {
     const filtroRes = await fetch(
       `${supabaseUrl}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
@@ -104,20 +106,13 @@ async function buscarUsuarioPorEmail(supabaseUrl, supabaseKey, email) {
       const data = await filtroRes.json();
       const users = data?.users || [];
       const match = users.find(u => (u.email || '').toLowerCase() === email);
-      if (match) {
-        console.log('[checar-acesso] Achado via filtro server-side');
-        return match;
-      }
-    } else {
-      console.warn('[checar-acesso] Filtro server-side falhou:', filtroRes.status);
+      if (match) return match;
     }
   } catch (e) {
     console.warn('[checar-acesso] Erro no filtro server-side:', e.message);
   }
 
-  // 2. Fallback: paginação manual (perPage máx = 1000)
-  // Vai até 5 páginas = 5000 usuários. Se você tiver mais que isso, avisa
-  // que precisamos de outra estratégia (RPC SQL direto).
+  // 2. Fallback: paginação
   const PER_PAGE = 1000;
   const MAX_PAGES = 5;
 
@@ -128,25 +123,15 @@ async function buscarUsuarioPorEmail(supabaseUrl, supabaseKey, email) {
         { headers: baseHeaders }
       );
 
-      if (!pageRes.ok) {
-        console.warn('[checar-acesso] Pag', page, 'falhou:', pageRes.status);
-        break;
-      }
+      if (!pageRes.ok) break;
 
       const data = await pageRes.json();
       const users = data?.users || [];
 
       const match = users.find(u => (u.email || '').toLowerCase() === email);
-      if (match) {
-        console.log('[checar-acesso] Achado na página', page);
-        return match;
-      }
+      if (match) return match;
 
-      // Última página (menos que PER_PAGE) → parar
-      if (users.length < PER_PAGE) {
-        console.log('[checar-acesso] Fim das páginas (' + page + '), não achado');
-        break;
-      }
+      if (users.length < PER_PAGE) break;
     } catch (e) {
       console.warn('[checar-acesso] Erro na página', page, ':', e.message);
       break;
