@@ -540,6 +540,23 @@ function bonusIconSVG(tipo) {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
 }
 
+// Adiciona o email do usuário logado na URL de checkout (pré-preenche na Kiwify).
+// Também passa nome se disponível. Se não houver usuário logado, retorna a URL original.
+function checkoutUrlComEmail(url) {
+  try {
+    if (!url) return url;
+    const email = (currentUser && currentUser.email) || window._loginEmail || '';
+    if (!email) return url;
+    const sep = url.includes('?') ? '&' : '?';
+    let extra = 'email=' + encodeURIComponent(email);
+    const fullName = (currentUser && currentUser.user_metadata && currentUser.user_metadata.full_name) || '';
+    if (fullName) extra += '&name=' + encodeURIComponent(fullName);
+    return url + sep + extra;
+  } catch (e) {
+    return url;
+  }
+}
+
 async function buildBonus() {
   const body = document.getElementById('bonus-body');
 
@@ -585,7 +602,7 @@ async function buildBonus() {
               </button>`;
           } else {
             botaoHTML = `
-              <a href="${item.url}" target="_blank" rel="noopener" class="bonus-btn" onclick="track && track('bonus_click',{item:'roteiro_pdf'});">
+              <a href="${checkoutUrlComEmail(item.url)}" target="_blank" rel="noopener" class="bonus-btn" onclick="track && track('bonus_click',{item:'roteiro_pdf'});">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 Quero esse bônus
               </a>`;
@@ -601,7 +618,7 @@ async function buildBonus() {
               </button>`;
           } else {
             botaoHTML = `
-              <a href="${item.url}" target="_blank" rel="noopener" class="bonus-btn" onclick="track && track('bonus_click',{item:'restaurantes_secretos'});">
+              <a href="${checkoutUrlComEmail(item.url)}" target="_blank" rel="noopener" class="bonus-btn" onclick="track && track('bonus_click',{item:'restaurantes_secretos'});">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
                 Quero esse bônus
               </a>`;
@@ -610,7 +627,7 @@ async function buildBonus() {
         // Item 3: Combo (só aparece se ainda não comprou nada)
         else {
           botaoHTML = `
-            <a href="${item.url}" target="_blank" rel="noopener" class="bonus-btn" onclick="track && track('bonus_click',{item:'combo'});">
+            <a href="${checkoutUrlComEmail(item.url)}" target="_blank" rel="noopener" class="bonus-btn" onclick="track && track('bonus_click',{item:'combo'});">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;flex-shrink:0;"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
               Quero esse bônus
             </a>`;
