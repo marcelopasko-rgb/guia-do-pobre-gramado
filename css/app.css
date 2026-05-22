@@ -1176,6 +1176,34 @@ s{color:#555;font-weight:500;}
   box-shadow: 0 4px 14px rgba(34, 197, 94, 0.25) !important;
 }
 
+/* Variante VERDE do card de destaque (usada no Combo) */
+.bonus-card-destaque.bonus-verde {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: linear-gradient(135deg, #0a1a10 0%, #0f2418 100%);
+  box-shadow: 0 4px 20px rgba(34, 197, 94, 0.12);
+}
+.bonus-card-destaque.bonus-verde .bonus-badge {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #06200f;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.45);
+}
+.bonus-card-destaque.bonus-verde .bonus-icon {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.32);
+  color: #22c55e;
+}
+.bonus-card-destaque.bonus-verde .bonus-preco-por {
+  color: #22c55e;
+}
+.bonus-card-destaque.bonus-verde .bonus-btn {
+  background: linear-gradient(135deg, #22c55e, #16a34a);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(34, 197, 94, 0.3);
+}
+.bonus-card-destaque.bonus-verde .bonus-btn:active {
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+}
+
 /* ════════════════════════════════════════════════════════════════
    RESTAURANTES SECRETOS (BÔNUS) — adicione ESTE TRECHO AO FINAL
    DO SEU css/app.css
