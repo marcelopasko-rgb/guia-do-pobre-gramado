@@ -28,14 +28,31 @@ module.exports = async function handler(req, res) {
     const orderId = payload.order_id || payload.id || null;
     const codigoPix = payload.pix_code || payload.payment?.pix_code || null;
 
-    const mensagem = montarMensagem(evento, primeiroNome, codigoPix);
-
     let whatsappEnviado = false;
     let whatsappResposta = null;
 
-    if (telefone && mensagem) {
-      whatsappResposta = await enviarWhatsApp(telefone, mensagem);
-      whatsappEnviado = !whatsappResposta.error;
+    if (telefone) {
+      if (evento === "order_approved") {
+        // Mensagem 1: boas-vindas + link do app
+        const msg1 = `Olá, ${primeiroNome}! 😊 Aqui é o Marcelo, do Guia do Pobre em Gramado.\n\nSua compra foi aprovada! 🎉\n\nAcesse seu app pelo link:\nhttps://guia-do-pobre-gramado.vercel.app/\n\nPara fazer login, use o mesmo e-mail da compra. Se não conseguir clicar no link acima, salve meu número nos contatos e tente novamente.\n\nBoa viagem e aproveite os cupons para economizar! 🥰`;
+        whatsappResposta = await enviarWhatsApp(telefone, msg1);
+        whatsappEnviado = !whatsappResposta.error;
+
+        // Aguarda 10 segundos
+        await delay(10000);
+
+        // Mensagem 2: link do grupo VIP com preview
+        const textoGrupo = `${primeiroNome}, outra coisa importante!\n\nVocê também tem acesso ao nosso *Grupo VIP* no WhatsApp, onde são compartilhadas dicas exclusivas, promoções e novidades de Gramado em tempo real.\n\nEntre agora pelo link:\nhttps://chat.whatsapp.com/FWQr1VHGXMb52H69SXWzZq\n\nNos vemos lá!`;
+        await enviarWhatsAppLink(telefone, textoGrupo);
+
+      } else {
+        // Outros eventos: envia mensagem única
+        const mensagem = montarMensagem(evento, primeiroNome, codigoPix);
+        if (mensagem) {
+          whatsappResposta = await enviarWhatsApp(telefone, mensagem);
+          whatsappEnviado = !whatsappResposta.error;
+        }
+      }
     }
 
     await salvarSupabase({
@@ -61,15 +78,10 @@ module.exports = async function handler(req, res) {
 
 // =====================================================
 // Mensagens por evento
-// Nomes reais usados pela Kiwify:
-// order_approved, abandoned_cart, waiting_payment, refunded, chargeback
 // =====================================================
 
 function montarMensagem(evento, nome, codigoPix) {
   switch (evento) {
-    case "order_approved":
-      return `Olá, ${nome}! 😊 Aqui é o Marcelo, do Guia do Pobre em Gramado.\n\nSua compra foi aprovada! 🎉\n\nAcesse seu app pelo link:\nhttps://guia-do-pobre-gramado.vercel.app/\n\nPara fazer login, use o mesmo e-mail da compra. Se não conseguir clicar no link acima, salve meu número nos contatos e tente novamente.\n\nBoa viagem e aproveite os cupons para economizar! 🥰`;
-
     case "abandoned_cart":
       return `Oi ${nome}, aqui é o Marcelo do Guia do Pobre em Gramado.\n\nVi que você chegou no checkout do guia mas não finalizou. Aconteceu alguma coisa? Foi dúvida sobre o conteúdo, problema no pagamento, ou só decidiu deixar pra depois mesmo?\n\nTô aqui se quiser tirar qualquer dúvida antes de decidir. Sem pressão.`;
 
@@ -89,6 +101,10 @@ function montarMensagem(evento, nome, codigoPix) {
 // Helpers
 // =====================================================
 
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function limparTelefone(tel) {
   if (!tel) return null;
   let n = tel.replace(/\D/g, "");
@@ -96,6 +112,7 @@ function limparTelefone(tel) {
   return n;
 }
 
+// Mensagem simples
 async function enviarWhatsApp(telefone, mensagem) {
   const url = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`;
 
@@ -107,6 +124,32 @@ async function enviarWhatsApp(telefone, mensagem) {
         "Client-Token": process.env.ZAPI_CLIENT_TOKEN,
       },
       body: JSON.stringify({ phone: telefone, message: mensagem }),
+    });
+    return await resp.json();
+  } catch (err) {
+    return { error: err.message };
+  }
+}
+
+// Mensagem com link preview (grupo VIP)
+async function enviarWhatsAppLink(telefone, mensagem) {
+  const url = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-link`;
+
+  try {
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Client-Token": process.env.ZAPI_CLIENT_TOKEN,
+      },
+      body: JSON.stringify({
+        phone: telefone,
+        message: mensagem,
+        image: "https://guia-do-pobre-gramado.vercel.app/icone_512.png",
+        linkUrl: "https://chat.whatsapp.com/FWQr1VHGXMb52H69SXWzZq",
+        title: "Grupo VIP - Guia do Pobre em Gramado",
+        linkDescription: "Dicas exclusivas, promoções e novidades de Gramado em tempo real.",
+      }),
     });
     return await resp.json();
   } catch (err) {
