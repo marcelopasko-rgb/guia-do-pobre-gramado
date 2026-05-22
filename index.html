@@ -740,7 +740,7 @@
       <!-- ETAPA 1: Email -->
       <div id="step-email">
         <p style="font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.6;">
-          Digite o e-mail usado na sua compra. Vamos enviar um link de acesso para a sua caixa de entrada — basta clicar e você entra automaticamente.
+          Digite o e-mail que você usou na compra para acessar seu roteiro personalizado.
         </p>
 
         <div class="login-field">
@@ -748,12 +748,64 @@
           <input type="email" id="input-email" placeholder="voce@email.com" autocomplete="email" inputmode="email" />
         </div>
 
-        <button class="login-cta" id="login-cta-btn" onclick="handleSendOtp()">
-          <span id="cta-text">Enviar link de acesso</span>
+        <button class="login-cta" id="check-email-btn" onclick="handleCheckEmail()">
+          <span>Continuar</span>
         </button>
       </div>
 
-      <!-- ETAPA 2: Código OTP -->
+      <!-- ETAPA 2A: Senha (usuário já tem conta com senha) -->
+      <div id="step-senha" style="display:none;">
+        <div style="background:rgba(250,204,21,0.06);border:1px solid rgba(250,204,21,0.18);border-radius:12px;padding:12px 14px;margin-bottom:16px;">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">Entrando como</div>
+          <div style="font-size:13px;color:var(--text);font-weight:700;word-break:break-all;" id="senha-email-display"></div>
+        </div>
+
+        <div class="login-field">
+          <label>Sua senha</label>
+          <input type="password" id="input-senha" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+
+        <button class="login-cta" id="login-senha-btn" onclick="handleLoginSenha()">
+          <span>Entrar</span>
+        </button>
+
+        <button onclick="handleEsqueciSenha()" id="esqueci-senha-btn" style="background:none;border:none;color:var(--yellow);font-size:12px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;margin-top:14px;display:block;width:100%;text-align:center;">
+          Esqueci minha senha
+        </button>
+
+        <button onclick="backToEmail()" style="background:none;border:none;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;margin-top:8px;display:block;width:100%;text-align:center;text-decoration:underline;text-underline-offset:2px;">
+          Usar outro e-mail
+        </button>
+      </div>
+
+      <!-- ETAPA 2B: Criar Senha (primeiro acesso OU sem senha ainda) -->
+      <div id="step-criar-senha" style="display:none;">
+        <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:14px;margin-bottom:16px;text-align:center;">
+          <div style="font-size:24px;margin-bottom:6px;">🔐</div>
+          <div style="font-size:12px;font-weight:700;color:#4ade80;margin-bottom:4px;">Primeiro acesso!</div>
+          <div style="font-size:11px;color:var(--muted);line-height:1.5;">Crie uma senha para <strong id="criar-senha-email-display" style="color:var(--text);word-break:break-all;"></strong></div>
+        </div>
+
+        <div class="login-field">
+          <label>Crie uma senha (mín. 6 caracteres)</label>
+          <input type="password" id="input-nova-senha" placeholder="••••••••" autocomplete="new-password" minlength="6" />
+        </div>
+
+        <div class="login-field">
+          <label>Confirme a senha</label>
+          <input type="password" id="input-confirma-senha" placeholder="••••••••" autocomplete="new-password" minlength="6" />
+        </div>
+
+        <button class="login-cta" id="criar-senha-btn" onclick="handleCriarSenha()">
+          <span>Criar senha e entrar</span>
+        </button>
+
+        <button onclick="backToEmail()" style="background:none;border:none;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;margin-top:12px;display:block;width:100%;text-align:center;text-decoration:underline;text-underline-offset:2px;">
+          Usar outro e-mail
+        </button>
+      </div>
+
+      <!-- ETAPA 3: Código OTP (fallback "esqueci senha") -->
       <div id="step-otp" style="display:none;">
         <div style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.2);border-radius:12px;padding:14px;margin-bottom:16px;text-align:center;">
           <div style="font-size:24px;margin-bottom:6px;">📬</div>
@@ -767,7 +819,7 @@
         </div>
 
         <button class="login-cta" id="verify-cta-btn" onclick="handleVerifyOtp()">
-          <span id="verify-cta-text">Entrar</span>
+          <span>Entrar</span>
         </button>
 
         <button onclick="backToEmail()" style="background:none;border:none;color:var(--muted);font-size:11px;font-weight:600;cursor:pointer;font-family:'Space Grotesk',sans-serif;margin-top:12px;display:block;width:100%;text-align:center;text-decoration:underline;text-underline-offset:2px;">

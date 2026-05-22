@@ -33,8 +33,7 @@ function hideSessionLoading() {
     var tokenHash = params.get('token_hash');
     var tokenType = params.get('type');
 
-    // PKCE flow: link do email traz ?token_hash=...&type=email
-    // (template novo configurado no Supabase Dashboard)
+    // PKCE flow (link do email antigo, mantido como fallback)
     if (tokenHash && tokenType) {
       try {
         var vr = await _supabase.auth.verifyOtp({ token_hash: tokenHash, type: tokenType });
@@ -50,18 +49,14 @@ function hideSessionLoading() {
         hideSessionLoading();
         showLoginOverlay();
         setTimeout(function() {
-          var msgEl = document.getElementById('login-msg');
-          if (msgEl) {
-            msgEl.textContent = 'Link expirado ou já usado. Solicite um novo código.';
-            msgEl.className = 'login-msg error';
-          }
+          showMsg('Link expirado ou já usado. Faça login com sua senha abaixo.', 'error');
         }, 100);
         history.replaceState(null, '', window.location.pathname);
         return;
       }
     }
 
-    // Fluxo antigo (fallback): magic link com #access_token no hash
+    // Magic link com hash (fallback)
     if (hash && hash.includes('access_token')) {
       _supabase.auth.onAuthStateChange(function(event, session) {
         if (session && session.user) {
@@ -78,7 +73,7 @@ function hideSessionLoading() {
       return;
     }
 
-    // Sem token na URL — tenta recuperar sessão salva no localStorage
+    // Sem token na URL — tenta recuperar sessão salva
     const { data: { session } } = await _supabase.auth.getSession();
     if (session && session.user) {
       hideSessionLoading();
@@ -114,7 +109,6 @@ function showLoginOverlay() {
   var ov = document.getElementById('login-overlay');
   if (ov) {
     ov.classList.remove('hidden');
-    // Impede fechar clicando no backdrop
     ov.onclick = function(e) { e.stopPropagation(); };
   }
 }
@@ -139,209 +133,363 @@ function clearMsg() {
 
 // ── LOADING STATE ─────────────────────────────────────────────────────────
 function setLoading(on, btnId, defaultText) {
-  btnId = btnId || 'login-cta-btn';
-  defaultText = defaultText || 'Enviar link de acesso';
   var btn = document.getElementById(btnId);
   if (!btn) return;
   if (on) {
     btn.disabled = true;
+    btn.dataset._oldHtml = btn.innerHTML;
     btn.innerHTML = '<div class="btn-spinner"></div>';
   } else {
     btn.disabled = false;
-    btn.innerHTML = '<span>' + defaultText + '</span>';
+    btn.innerHTML = btn.dataset._oldHtml || ('<span>' + (defaultText || 'Continuar') + '</span>');
+    delete btn.dataset._oldHtml;
   }
 }
 
-// ── ENVIAR CÓDIGO OTP ─────────────────────────────────────────────────────
-async function handleSendOtp() {
+// ── NAVEGAÇÃO ENTRE ETAPAS ────────────────────────────────────────────────
+function showStep(stepId) {
+  var steps = ['step-email', 'step-senha', 'step-criar-senha', 'step-otp'];
+  steps.forEach(function(s) {
+    var el = document.getElementById(s);
+    if (el) el.style.display = (s === stepId) ? 'block' : 'none';
+  });
+  // Foca primeiro input visível
+  setTimeout(function() {
+    var step = document.getElementById(stepId);
+    if (step) {
+      var firstInput = step.querySelector('input');
+      if (firstInput) firstInput.focus();
+    }
+  }, 200);
+}
+
+// ── ETAPA 1: VERIFICAR EMAIL E DECIDIR FLUXO ──────────────────────────────
+async function handleCheckEmail() {
   clearMsg();
   var emailEl = document.getElementById('input-email');
-  var email   = emailEl ? emailEl.value.trim().toLowerCase() : '';
+  var email = emailEl ? emailEl.value.trim().toLowerCase() : '';
 
   if (!email) {
     showMsg('Digite seu e-mail.');
-    track('login_send_failed', { motivo: 'email_vazio' });
     return;
   }
   if (!email.includes('@') || !email.includes('.')) {
     showMsg('E-mail inválido.');
-    track('login_send_failed', { motivo: 'email_invalido' });
     return;
   }
 
-  setLoading(true, 'login-cta-btn', 'Enviar link de acesso');
+  setLoading(true, 'check-email-btn');
 
-  if (!_supabase) {
-    setLoading(false, 'login-cta-btn', 'Enviar link de acesso');
-    showMsg('Erro de conexão. Tente novamente.');
-    track('login_send_failed', { motivo: 'supabase_indisponivel' });
-    return;
-  }
-
-  // signInWithOtp SEM emailRedirectTo (fluxo implicit).
-  // O template do email agora só envia o código de 8 dígitos, sem link clicável.
-  // Como não há link, não há vetor de pré-clique por antivírus/preview de email,
-  // e o fluxo implicit funciona perfeitamente em PWA instalada (sem dor de
-  // cross-context que o PKCE traz).
-  console.log('[OTP DEBUG] Solicitando código para:', email);
-  var res = await _supabase.auth.signInWithOtp({
-    email: email,
-    options: {
-      shouldCreateUser: false
-    }
-  });
-
-  console.log('[OTP DEBUG] Resposta da solicitação:', {
-    success: !res.error,
-    error: res.error ? res.error.message : null
-  });
-
-  setLoading(false, 'login-cta-btn', 'Enviar link de acesso');
-
-  if (res.error) {
-    var errMsg = (res.error.message || '').toLowerCase();
-    var motivo = 'erro_desconhecido';
-    if (errMsg.includes('signups not allowed')) {
-      showMsg('E-mail não encontrado. Verifique se usou o mesmo e-mail da compra.');
-      motivo = 'email_nao_cadastrado';
-    } else if (errMsg.includes('rate limit')) {
-      showMsg('Muitas tentativas. Espere 60 segundos e tente de novo.');
-      motivo = 'rate_limit';
-    } else {
-      showMsg(res.error.message || 'Erro ao enviar código.');
-    }
-    track('login_send_failed', {
-      motivo: motivo,
-      erro_msg: res.error.message || null,
-      erro_status: res.error.status || null,
-      email_dominio: email.split('@')[1] || null
+  try {
+    var res = await fetch('/api/checar-acesso', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email })
     });
-    return;
+
+    var data = await res.json();
+    setLoading(false, 'check-email-btn');
+
+    if (!res.ok) {
+      showMsg(data.error || 'Erro ao verificar e-mail. Tente novamente.');
+      track('login_check_failed', { motivo: 'erro_servidor', status: res.status });
+      return;
+    }
+
+    // Guarda email pras próximas etapas
+    window._loginEmail = email;
+
+    if (!data.existe) {
+      showMsg('E-mail não encontrado. Verifique se é o mesmo da sua compra.');
+      track('login_check_failed', { motivo: 'email_nao_cadastrado', email_dominio: email.split('@')[1] });
+      return;
+    }
+
+    if (data.tem_senha) {
+      // Usuário com senha → tela de login normal
+      var emailDisp = document.getElementById('senha-email-display');
+      if (emailDisp) emailDisp.textContent = email;
+      showStep('step-senha');
+      track('login_check_success', { fluxo: 'login_senha' });
+    } else {
+      // Usuário sem senha (criado pela Edge Function ou logou antes só via OTP)
+      // → força a criar uma senha agora
+      var emailDispC = document.getElementById('criar-senha-email-display');
+      if (emailDispC) emailDispC.textContent = email;
+      showStep('step-criar-senha');
+      track('login_check_success', { fluxo: 'criar_senha' });
+    }
+  } catch (err) {
+    setLoading(false, 'check-email-btn');
+    showMsg('Erro de conexão. Verifique sua internet e tente de novo.');
+    console.error('[checar-acesso] exception:', err);
+    track('login_check_failed', { motivo: 'exception', erro: String(err) });
   }
-
-  track('login_send_success', { email_dominio: email.split('@')[1] || null });
-
-  // Registra o timestamp da solicitação pra diagnóstico no verifyOtp
-  window._otpRequestedAt = Date.now();
-
-  // Mostra a etapa do código
-  document.getElementById('step-email').style.display = 'none';
-  document.getElementById('step-otp').style.display = 'block';
-  document.getElementById('otp-email-display').textContent = email;
-  // Guarda o email para usar no verify
-  window._otpEmail = email;
-  // Foca no input do código
-  setTimeout(function() {
-    var otpInput = document.getElementById('input-otp');
-    if (otpInput) otpInput.focus();
-  }, 200);
 }
 
-// ── VERIFICAR CÓDIGO OTP ──────────────────────────────────────────────────
-async function handleVerifyOtp() {
+// ── ETAPA 2A: LOGIN COM SENHA ─────────────────────────────────────────────
+async function handleLoginSenha() {
   clearMsg();
-  var otpEl = document.getElementById('input-otp');
-  var token = otpEl ? otpEl.value.trim() : '';
-  var email = window._otpEmail || '';
+  var senhaEl = document.getElementById('input-senha');
+  var senha = senhaEl ? senhaEl.value : '';
+  var email = window._loginEmail || '';
 
-  if (!token) {
-    showMsg('Digite o código de 8 dígitos.');
-    track('login_verify_failed', { motivo: 'codigo_vazio' });
-    return;
-  }
-  if (token.length !== 8 || !/^\d{8}$/.test(token)) {
-    showMsg('Código deve ter 8 dígitos.');
-    track('login_verify_failed', { motivo: 'formato_invalido', token_length: token.length });
-    return;
-  }
   if (!email) {
-    showMsg('Sessão expirou. Recomece o login.');
-    track('login_verify_failed', { motivo: 'sem_email_na_sessao' });
+    showMsg('Sessão expirou. Recomece.');
+    backToEmail();
+    return;
+  }
+  if (!senha) {
+    showMsg('Digite sua senha.');
+    return;
+  }
+
+  setLoading(true, 'login-senha-btn');
+
+  try {
+    var res = await _supabase.auth.signInWithPassword({ email: email, password: senha });
+    setLoading(false, 'login-senha-btn');
+
+    if (res.error) {
+      var errMsg = (res.error.message || '').toLowerCase();
+      if (errMsg.includes('invalid login') || errMsg.includes('invalid credentials')) {
+        showMsg('Senha incorreta. Tente novamente ou use "Esqueci minha senha".');
+        track('login_senha_failed', { motivo: 'senha_incorreta' });
+      } else if (errMsg.includes('rate limit') || errMsg.includes('too many')) {
+        showMsg('Muitas tentativas. Espere 60 segundos e tente de novo.');
+        track('login_senha_failed', { motivo: 'rate_limit' });
+      } else {
+        showMsg(res.error.message || 'Erro ao entrar.');
+        track('login_senha_failed', { motivo: 'erro_desconhecido', erro: res.error.message });
+      }
+      return;
+    }
+
+    track('login_senha_success', {});
+    // onAuthStateChange dispara e chama onLoginSuccess
+  } catch (err) {
+    setLoading(false, 'login-senha-btn');
+    showMsg('Erro de conexão. Tente novamente.');
+    console.error('[login-senha] exception:', err);
+  }
+}
+
+// ── ETAPA 2B: CRIAR SENHA (primeiro acesso OU usuário antigo sem senha) ───
+async function handleCriarSenha() {
+  clearMsg();
+  var s1 = document.getElementById('input-nova-senha');
+  var s2 = document.getElementById('input-confirma-senha');
+  var senha1 = s1 ? s1.value : '';
+  var senha2 = s2 ? s2.value : '';
+  var email = window._loginEmail || '';
+
+  if (!email) {
+    showMsg('Sessão expirou. Recomece.');
+    backToEmail();
+    return;
+  }
+  if (!senha1 || senha1.length < 6) {
+    showMsg('Senha precisa de no mínimo 6 caracteres.');
+    return;
+  }
+  if (senha1.length > 72) {
+    showMsg('Senha muito longa (máx. 72 caracteres).');
+    return;
+  }
+  if (senha1 !== senha2) {
+    showMsg('As senhas não coincidem.');
+    return;
+  }
+
+  setLoading(true, 'criar-senha-btn');
+
+  try {
+    // 1. Cria/atualiza a senha no servidor
+    var res = await fetch('/api/criar-senha', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, senha: senha1 })
+    });
+
+    var data = await res.json();
+
+    if (!res.ok) {
+      setLoading(false, 'criar-senha-btn');
+      showMsg(data.error || 'Erro ao criar senha. Tente novamente.');
+      track('criar_senha_failed', { motivo: 'erro_servidor', status: res.status });
+      return;
+    }
+
+    track('criar_senha_success', {});
+
+    // 2. Loga automaticamente com a senha recém-criada
+    var loginRes = await _supabase.auth.signInWithPassword({ email: email, password: senha1 });
+    setLoading(false, 'criar-senha-btn');
+
+    if (loginRes.error) {
+      showMsg('Senha criada, mas erro no login automático. Tente entrar manualmente.');
+      track('criar_senha_login_falhou', { erro: loginRes.error.message });
+      // Volta pra tela de senha
+      var emailDisp = document.getElementById('senha-email-display');
+      if (emailDisp) emailDisp.textContent = email;
+      showStep('step-senha');
+      return;
+    }
+
+    // Sucesso → onAuthStateChange dispara onLoginSuccess
+  } catch (err) {
+    setLoading(false, 'criar-senha-btn');
+    showMsg('Erro de conexão. Tente novamente.');
+    console.error('[criar-senha] exception:', err);
+  }
+}
+
+// ── ETAPA OPCIONAL: ESQUECI MINHA SENHA (envia OTP) ───────────────────────
+async function handleEsqueciSenha() {
+  clearMsg();
+  var email = window._loginEmail || '';
+  if (!email) {
+    showMsg('Digite o e-mail primeiro.');
     backToEmail();
     return;
   }
 
-  setLoading(true, 'verify-cta-btn', 'Entrar');
+  setLoading(true, 'esqueci-senha-btn');
 
-  // ── DIAGNÓSTICO DE LOGIN ──────────────────────────────────────────────
-  // Loga tudo no console pra investigar problemas intermitentes de "código expirado".
-  // Compare timestamps entre quando o código foi solicitado e quando você digitou.
-  var dbgStart = Date.now();
-  var dbgRequested = window._otpRequestedAt || null;
-  var dbgElapsedSec = dbgRequested ? Math.round((Date.now() - dbgRequested) / 1000) : null;
-  console.log('[OTP DEBUG] Verificando código...', {
-    email: email,
-    tokenLength: token.length,
-    requestedAt: dbgRequested ? new Date(dbgRequested).toISOString() : 'desconhecido',
-    elapsedSinceRequest: dbgRequested ? (dbgElapsedSec + 's') : 'desconhecido',
-    nowAt: new Date(dbgStart).toISOString()
-  });
-
-  var res = await _supabase.auth.verifyOtp({
-    email: email,
-    token: token,
-    type: 'email'
-  });
-
-  console.log('[OTP DEBUG] Resposta do Supabase:', {
-    elapsed: (Date.now() - dbgStart) + 'ms',
-    success: !res.error,
-    error: res.error ? {
-      message: res.error.message,
-      status: res.error.status,
-      code: res.error.code || res.error.error_code || null,
-      name: res.error.name
-    } : null,
-    user: res.data && res.data.user ? { id: res.data.user.id, email: res.data.user.email } : null
-  });
-
-  setLoading(false, 'verify-cta-btn', 'Entrar');
-
-  if (res.error) {
-    var errMsg = (res.error.message || '').toLowerCase();
-    var motivo = 'erro_desconhecido';
-    if (errMsg.includes('expired')) {
-      showMsg('Código expirado. Peça um novo código.');
-      motivo = 'expirado';
-    } else if (errMsg.includes('invalid')) {
-      showMsg('Código inválido. Verifique e tente de novo.');
-      motivo = 'codigo_invalido';
-    } else {
-      showMsg(res.error.message || 'Erro ao verificar código.');
-    }
-    track('login_verify_failed', {
-      motivo: motivo,
-      erro_msg: res.error.message || null,
-      erro_status: res.error.status || null,
-      tempo_desde_solicitacao_seg: dbgElapsedSec
+  try {
+    var res = await _supabase.auth.signInWithOtp({
+      email: email,
+      options: { shouldCreateUser: false }
     });
+
+    setLoading(false, 'esqueci-senha-btn');
+
+    if (res.error) {
+      var errMsg = (res.error.message || '').toLowerCase();
+      if (errMsg.includes('rate limit')) {
+        showMsg('Muitas tentativas. Espere 60 segundos.');
+      } else {
+        showMsg(res.error.message || 'Erro ao enviar código.');
+      }
+      track('esqueci_senha_failed', { erro: res.error.message });
+      return;
+    }
+
+    track('esqueci_senha_success', {});
+    window._otpRequestedAt = Date.now();
+
+    // Mostra etapa do código OTP
+    var otpDisp = document.getElementById('otp-email-display');
+    if (otpDisp) otpDisp.textContent = email;
+    showStep('step-otp');
+  } catch (err) {
+    setLoading(false, 'esqueci-senha-btn');
+    showMsg('Erro de conexão. Tente novamente.');
+    console.error('[esqueci-senha] exception:', err);
+  }
+}
+
+// ── VERIFICAR CÓDIGO OTP (fluxo "esqueci senha") ──────────────────────────
+async function handleVerifyOtp() {
+  clearMsg();
+  var otpEl = document.getElementById('input-otp');
+  var token = otpEl ? otpEl.value.trim() : '';
+  var email = window._loginEmail || '';
+
+  if (!token) {
+    showMsg('Digite o código de 8 dígitos.');
+    return;
+  }
+  if (token.length !== 8 || !/^\d{8}$/.test(token)) {
+    showMsg('Código deve ter 8 dígitos.');
+    return;
+  }
+  if (!email) {
+    showMsg('Sessão expirou. Recomece.');
+    backToEmail();
     return;
   }
 
-  // Sucesso! O onAuthStateChange vai disparar e chamar onLoginSuccess.
-  track('login_verify_success', { tempo_desde_solicitacao_seg: dbgElapsedSec });
+  setLoading(true, 'verify-cta-btn');
+
+  var dbgRequested = window._otpRequestedAt || null;
+  var dbgElapsedSec = dbgRequested ? Math.round((Date.now() - dbgRequested) / 1000) : null;
+
+  try {
+    var res = await _supabase.auth.verifyOtp({ email: email, token: token, type: 'email' });
+
+    setLoading(false, 'verify-cta-btn');
+
+    if (res.error) {
+      var errMsg = (res.error.message || '').toLowerCase();
+      if (errMsg.includes('expired')) {
+        showMsg('Código expirado. Peça um novo código.');
+      } else if (errMsg.includes('invalid')) {
+        showMsg('Código inválido. Verifique e tente de novo.');
+      } else {
+        showMsg(res.error.message || 'Erro ao verificar código.');
+      }
+      track('login_verify_failed', { motivo: errMsg, tempo_seg: dbgElapsedSec });
+      return;
+    }
+
+    track('login_verify_success', { tempo_seg: dbgElapsedSec });
+
+    // Após login via OTP, oferece criar senha pra próxima vez (não obriga)
+    // O usuário já está logado; mostramos uma flag pra abrir um modal opcional depois
+    window._sugerirCriarSenha = true;
+
+  } catch (err) {
+    setLoading(false, 'verify-cta-btn');
+    showMsg('Erro de conexão. Tente novamente.');
+    console.error('[verify-otp] exception:', err);
+  }
 }
 
 // ── VOLTAR PARA TELA DE EMAIL ─────────────────────────────────────────────
 function backToEmail() {
   clearMsg();
-  document.getElementById('step-otp').style.display = 'none';
-  document.getElementById('step-email').style.display = 'block';
-  var otpInput = document.getElementById('input-otp');
-  if (otpInput) otpInput.value = '';
-  window._otpEmail = null;
+  ['input-senha', 'input-nova-senha', 'input-confirma-senha', 'input-otp'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  window._loginEmail = null;
+  window._otpRequestedAt = null;
+  showStep('step-email');
 }
 
-// Auto-submit quando o usuário cola/digita o código completo
+// ── ENTER + AUTO-SUBMIT ───────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function() {
+  // Enter no campo de email
+  var inputEmail = document.getElementById('input-email');
+  if (inputEmail) {
+    inputEmail.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); handleCheckEmail(); }
+    });
+  }
+
+  // Enter no campo de senha
+  var inputSenha = document.getElementById('input-senha');
+  if (inputSenha) {
+    inputSenha.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); handleLoginSenha(); }
+    });
+  }
+
+  // Enter no confirmar senha
+  var inputConfirma = document.getElementById('input-confirma-senha');
+  if (inputConfirma) {
+    inputConfirma.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') { e.preventDefault(); handleCriarSenha(); }
+    });
+  }
+
+  // Auto-submit no OTP (8 dígitos)
   var otpInput = document.getElementById('input-otp');
   if (otpInput) {
     otpInput.addEventListener('input', function(e) {
-      // Mantém apenas dígitos
       e.target.value = e.target.value.replace(/\D/g, '').slice(0, 8);
-      if (e.target.value.length === 8) {
-        handleVerifyOtp();
-      }
+      if (e.target.value.length === 8) handleVerifyOtp();
     });
   }
 });
@@ -351,14 +499,10 @@ function onLoginSuccess(user) {
   currentUser = user;
   hideLoginOverlay();
   updateHeaderForUser(user);
-  // Saudação: usa nome customizado se houver, senão genérico "viajante".
-  // NÃO usa pedaço do email — vaza dados pessoais em screenshots/posts.
   var meta = user.user_metadata || {};
   var name = (meta.full_name || meta.name || '').trim() || 'viajante';
   showToast('Bem-vindo, ' + name + '! 🎉');
-  // Carrega roteiro personalizado em background
   carregarRoteiroPersonalizado();
-  // Gatilho PWA — usuário acabou de ver valor real no produto
   setTimeout(pwaTrigger, 3500);
 }
 
@@ -366,8 +510,6 @@ function onLoginSuccess(user) {
 async function track(evento, payload = {}) {
   if (!_supabase) return;
   try {
-    // Usa currentUser em cache em vez de fazer round-trip a cada evento.
-    // (currentUser é setado por onLoginSuccess/auth state change)
     const { error } = await _supabase.from('eventos').insert({
       user_id: currentUser ? currentUser.id : null,
       evento,
@@ -379,26 +521,20 @@ async function track(evento, payload = {}) {
   }
 }
 
-// Flag pra disparar o prompt PWA na primeira interação com botão de desconto
 let _pwaDiscountTriggered = false;
 
-// Delegação ÚNICA de eventos — captura cliques em botões de desconto.
-// Faz tracking + dispara PWA prompt na primeira vez, tudo em um handler só.
 document.addEventListener('click', function(e) {
   const btn = e.target.closest('.btn-comprar, .btn-roteiro-desconto');
   if (!btn) return;
 
-  // Descobre em qual overlay estamos
   const overlay = btn.closest('.overlay');
   const overlayId = overlay ? overlay.id : 'home';
 
-  // Pega o nome do item pelo elemento pai mais próximo com título
   const card = btn.closest('.attr-card, .park-item, [class*="rest"]');
   const titulo = card
     ? (card.querySelector('h5')?.textContent || card.querySelector('.park-name')?.textContent || '').trim()
     : '';
 
-  // Identifica o tipo de evento pela aba
   let evento = 'clique_desconto';
   if (overlayId === 'overlay-promocoes') evento = 'clique_parque';
   else if (overlayId === 'overlay-restaurantes') evento = 'clique_restaurante';
@@ -406,7 +542,6 @@ document.addEventListener('click', function(e) {
 
   track(evento, { nome: titulo, overlay: overlayId, href: btn.href || null });
 
-  // Dispara prompt de instalação PWA na primeira vez (sinal forte de engajamento)
   if (!_pwaDiscountTriggered) {
     _pwaDiscountTriggered = true;
     pwaTrigger();
@@ -417,8 +552,6 @@ document.addEventListener('click', function(e) {
 function updateHeaderForUser(user) {
   var badge = document.querySelector('.app-header-badge');
   if (!badge) return;
-  // Mesma regra do toast: nome customizado ou genérico. NÃO usa pedaço do email,
-  // que seria visível no header e em screenshots.
   var meta = user.user_metadata || {};
   var displayName = (meta.full_name || meta.name || '').trim() || 'Membro';
   var initials = displayName.slice(0, 2).toUpperCase();
@@ -431,7 +564,6 @@ function updateHeaderForUser(user) {
 }
 
 // ── LOGOUT ────────────────────────────────────────────────────────────────
-// Abre a sheet de confirmação (substitui o confirm() nativo, que quebrava a estética).
 function handleLogout() {
   const sheet = document.getElementById('logout-sheet');
   const panel = document.getElementById('logout-panel');
@@ -464,13 +596,13 @@ async function logoutConfirm() {
     chip.replaceWith(badge);
   }
   showLoginOverlay();
+  backToEmail();
 }
 
 /* ═══ PWA INSTALL PROMPT ═══ */
 let _pwaDeferred = null;
 let _pwaShownThisSession = false;
 
-// Captura o evento antes que o navegador mostre automaticamente
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   _pwaDeferred = e;
@@ -487,26 +619,24 @@ function isInStandaloneMode() {
 function pwaAlreadyDismissed() {
   const d = localStorage.getItem('pwa_dismissed');
   if (!d) return false;
-  // Mostra de novo depois de 7 dias
   return (Date.now() - parseInt(d)) < 7 * 24 * 60 * 60 * 1000;
 }
 
 function pwaShowSheet() {
   if (_pwaShownThisSession) return;
-  if (isInStandaloneMode()) return;       // já instalado
-  if (pwaAlreadyDismissed()) return;      // dispensou recentemente
+  if (isInStandaloneMode()) return;
+  if (pwaAlreadyDismissed()) return;
 
   const sheet = document.getElementById('pwa-sheet');
   const panel = document.getElementById('pwa-panel');
   const androidDiv = document.getElementById('pwa-android');
   const iosDiv = document.getElementById('pwa-ios');
 
-  // iOS: sem prompt nativo, mostra instruções manuais
   if (isIos()) {
     androidDiv.style.display = 'none';
     iosDiv.style.display = 'block';
   } else if (!_pwaDeferred) {
-    return; // Android/Desktop mas sem evento capturado (já instalado ou não elegível)
+    return;
   }
 
   _pwaShownThisSession = true;
@@ -538,8 +668,6 @@ function pwaSheetDismiss() {
   }, 350);
 }
 
-// Gatilhos de momento certo — chamados em pontos de alto engajamento
 function pwaTrigger() {
-  setTimeout(pwaShowSheet, 800); // pequeno delay para não interromper a ação
+  setTimeout(pwaShowSheet, 800);
 }
-
