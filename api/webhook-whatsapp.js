@@ -83,7 +83,7 @@ module.exports = async function handler(req, res) {
 function montarMensagem(evento, nome, codigoPix) {
   switch (evento) {
     case "abandoned_cart":
-      return `Oi ${nome}, aqui é o Marcelo do Guia do Pobre em Gramado.\n\nVi que você chegou no checkout do guia mas não finalizou. Aconteceu alguma coisa? Foi dúvida sobre o conteúdo, problema no pagamento, ou só decidiu deixar pra depois mesmo?\n\nTô aqui se quiser tirar qualquer dúvida antes de decidir. Sem pressão.`;
+      return `Oi ${nome}, aqui é o Marcelo do Guia do Pobre em Gramado.\n\nVi que você chegou no checkout do guia mas não finalizou. Aconteceu alguma coisa? Foi dúvida sobre o conteúdo, problema no pagamento, ou só decidiu deixar pra depois mesmo?\n\nTô aqui se quiser tirar qualquer dúvida antes de decidir.`;
 
     case "waiting_payment":
       return `Oi ${nome}, Marcelo aqui do Guia do Pobre em Gramado.\n\nSeu PIX foi gerado e tá esperando pagamento.\n\nSó um lembrete: PIX da Kiwify expira em algumas horas, então se ainda tem interesse, recomendo finalizar agora pra não precisar gerar de novo.\n\nAssim que o pagamento cair, o acesso é liberado automaticamente no seu e-mail.\n\n${codigoPix ? `Código PIX:\n${codigoPix}\n\n` : ""}Qualquer problema pra pagar, me chama.`;
