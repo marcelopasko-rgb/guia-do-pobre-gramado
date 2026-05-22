@@ -13,13 +13,18 @@ module.exports = async function handler(req, res) {
   try {
     // 1. Valida o token de segurança
     const tokenRecebido = req.query.token;
+    console.log("[webhook] token recebido:", tokenRecebido);
+    console.log("[webhook] token esperado:", process.env.KIWIFY_TOKEN);
+
     if (tokenRecebido !== process.env.KIWIFY_TOKEN) {
+      console.log("[webhook] TOKEN INVÁLIDO - bloqueando");
       return res.status(401).send("Token inválido");
     }
 
     // 2. Lê o payload
     const payload = req.body;
     const evento = payload.webhook_event_type;
+    console.log("[webhook] evento:", evento);
 
     // 3. Extrai dados do cliente
     const nomeCompleto = payload.Customer?.full_name || payload.Customer?.first_name || "";
@@ -31,8 +36,12 @@ module.exports = async function handler(req, res) {
     const orderId = payload.order_id || payload.id || null;
     const codigoPix = payload.pix_code || payload.payment?.pix_code || null;
 
+    console.log("[webhook] telefone:", telefone);
+    console.log("[webhook] nome:", primeiroNome);
+
     // 4. Monta mensagem conforme o evento
     const mensagem = montarMensagem(evento, primeiroNome, codigoPix);
+    console.log("[webhook] mensagem montada:", mensagem ? "sim" : "null (evento ignorado)");
 
     // 5. Envia WhatsApp (se tem telefone e mensagem)
     let whatsappEnviado = false;
@@ -41,6 +50,10 @@ module.exports = async function handler(req, res) {
     if (telefone && mensagem) {
       whatsappResposta = await enviarWhatsApp(telefone, mensagem);
       whatsappEnviado = !whatsappResposta.error;
+      console.log("[webhook] whatsapp enviado:", whatsappEnviado);
+      console.log("[webhook] resposta z-api:", JSON.stringify(whatsappResposta));
+    } else {
+      console.log("[webhook] WhatsApp NÃO enviado - telefone:", telefone, "| mensagem:", mensagem ? "ok" : "null");
     }
 
     // 6. Salva no Supabase
@@ -64,7 +77,7 @@ module.exports = async function handler(req, res) {
       whatsapp_enviado: whatsappEnviado,
     });
   } catch (err) {
-    console.error("Erro no webhook:", err);
+    console.error("[webhook] ERRO GERAL:", err.message);
     return res.status(500).json({ ok: false, erro: err.message });
   }
 };
@@ -107,6 +120,9 @@ function limparTelefone(tel) {
 async function enviarWhatsApp(telefone, mensagem) {
   const url = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-text`;
 
+  console.log("[zapi] URL:", url);
+  console.log("[zapi] Client-Token presente:", !!process.env.ZAPI_CLIENT_TOKEN);
+
   try {
     const resp = await fetch(url, {
       method: "POST",
@@ -116,8 +132,12 @@ async function enviarWhatsApp(telefone, mensagem) {
       },
       body: JSON.stringify({ phone: telefone, message: mensagem }),
     });
-    return await resp.json();
+    const json = await resp.json();
+    console.log("[zapi] status HTTP:", resp.status);
+    console.log("[zapi] resposta:", JSON.stringify(json));
+    return json;
   } catch (err) {
+    console.error("[zapi] ERRO fetch:", err.message);
     return { error: err.message };
   }
 }
@@ -139,9 +159,9 @@ async function salvarSupabase(dados) {
 
     if (!resp.ok) {
       const erro = await resp.text();
-      console.error("Erro Supabase:", erro);
+      console.error("[supabase] Erro:", erro);
     }
   } catch (err) {
-    console.error("Falha ao salvar no Supabase:", err);
+    console.error("[supabase] Falha:", err.message);
   }
 }
