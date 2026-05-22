@@ -634,7 +634,7 @@ async function buildBonus() {
         }
 
         return `
-        <div class="bonus-card${item.destaque ? ' bonus-card-destaque' : ''}">
+        <div class="bonus-card${item.destaque ? ' bonus-card-destaque bonus-verde' : ''}">
           ${item.destaque ? '<div class="bonus-badge">MAIS ESCOLHIDO</div>' : ''}
           <div class="bonus-card-top">
             <div class="bonus-icon">${bonusIconSVG(item.icon)}</div>
