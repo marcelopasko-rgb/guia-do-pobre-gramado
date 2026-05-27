@@ -17,16 +17,25 @@ module.exports = async function handler(req, res) {
     }
 
     const payload = req.body;
-    const evento = payload.webhook_event_type;
 
-    const nomeCompleto = payload.Customer?.full_name || payload.Customer?.first_name || "";
+    // A Kiwify usa "webhook_event_type" para vendas e "event" para abandono
+    const evento = payload.webhook_event_type || payload.event;
+
+    // Dados do cliente — estrutura diferente dependendo do evento
+    const customer = payload.Customer || payload.customer || {};
+    const nomeCompleto = customer.full_name || customer.name || customer.first_name || "";
     const primeiroNome = nomeCompleto.split(" ")[0] || "amigo(a)";
-    const email = payload.Customer?.email || null;
-    const telefone = limparTelefone(payload.Customer?.mobile);
+    const email = customer.email || null;
+    const telefone = limparTelefone(customer.mobile || customer.phone);
     const produto = payload.Product?.product_name || null;
     const valor = payload.Commissions?.charge_amount ? Number(payload.Commissions.charge_amount) / 100 : null;
-    const orderId = payload.order_id || payload.id || null;
-    const codigoPix = payload.pix_code || payload.payment?.pix_code || null;
+    const orderId = payload.order_id || payload.checkout_id || payload.id || null;
+    const codigoPix = payload.pix_code || payload.payment?.pix_code || payload.payment?.pix_qr || null;
+
+    // Link de abandono (vem direto como checkout_url)
+    const linkAbandono = payload.checkout_url
+      ? `${payload.checkout_url}?coupon=POBRE50`
+      : null;
 
     let whatsappEnviado = false;
     let whatsappResposta = null;
@@ -45,8 +54,20 @@ module.exports = async function handler(req, res) {
         const textoGrupo = `${primeiroNome}, outra coisa importante!\n\nVocê também tem acesso ao nosso *Grupo VIP* no WhatsApp, onde são compartilhadas dicas exclusivas, promoções e novidades de Gramado em tempo real.\n\nEntre agora pelo link:\nhttps://chat.whatsapp.com/FWQr1VHGXMb52H69SXWzZq\n\nNos vemos lá!`;
         await enviarWhatsAppLink(telefone, textoGrupo);
 
+      } else if (evento === "carrinho_abandonado" || evento === "cart_abandoned") {
+        // Mensagem 1: cupom + link personalizado
+        const msgAbandono = `Oi, ${primeiroNome}! 😊\n\nVi que você se interessou pelo aplicativo Guia do Pobre em Gramado, mas não finalizou a compra.\n\nQuero te dar uma condição especial: use o cupom *POBRE50* e garanta 50% de desconto! 🎉\n\n⚠️ Atenção: o cupom é válido por apenas 3 horas!\n\n👉 Acesse pelo seu link exclusivo:\n${linkAbandono || "https://pay.kiwify.com.br/fN5HZp2"}\n\nQualquer dúvida, é só chamar! 😊`;
+        whatsappResposta = await enviarWhatsApp(telefone, msgAbandono);
+        whatsappEnviado = !whatsappResposta.error;
+
+        // Aguarda 5 segundos
+        await delay(5000);
+
+        // Mensagem 2: dica do contato
+        await enviarWhatsApp(telefone, "Obs.: às vezes é necessário salvar meu contato para conseguir clicar no link.");
+
       } else {
-        // Outros eventos: envia mensagem única
+        // Outros eventos
         const mensagem = montarMensagem(evento, primeiroNome, codigoPix);
         if (mensagem) {
           whatsappResposta = await enviarWhatsApp(telefone, mensagem);
@@ -82,12 +103,6 @@ module.exports = async function handler(req, res) {
 
 function montarMensagem(evento, nome, codigoPix) {
   switch (evento) {
-    case "abandoned_cart":
-      return `Oi ${nome}, aqui é o Marcelo do Guia do Pobre em Gramado.\n\nVi que você chegou no checkout do guia mas não finalizou. Aconteceu alguma coisa? Foi dúvida sobre o conteúdo, problema no pagamento, ou só decidiu deixar pra depois mesmo?\n\nTô aqui se quiser tirar qualquer dúvida antes de decidir.`;
-
-    case "waiting_payment":
-      return `Oi ${nome}, Marcelo aqui do Guia do Pobre em Gramado.\n\nSeu PIX foi gerado e tá esperando pagamento.\n\nSó um lembrete: PIX da Kiwify expira em algumas horas, então se ainda tem interesse, recomendo finalizar agora pra não precisar gerar de novo.\n\nAssim que o pagamento cair, o acesso é liberado automaticamente no seu e-mail.\n\n${codigoPix ? `Código PIX:\n${codigoPix}\n\n` : ""}Qualquer problema pra pagar, me chama.`;
-
     case "refunded":
     case "chargeback":
       return `Olá ${nome}, aqui é o Marcelo do Guia do Pobre em Gramado.\n\nIdentifiquei que sua compra foi reembolsada e seu acesso ao guia foi removido.\n\nSem problema nenhum, faz parte. Mas se puder me contar rapidamente o que não atendeu sua expectativa, vou levar a sério e usar pra melhorar o produto. Seu feedback vale muito.\n\nSe foi algum engano ou problema técnico que dá pra resolver, também me avisa.\n\nObrigado!`;
