@@ -1253,3 +1253,370 @@ s{color:#555;font-weight:500;}
   line-height: 1.3;
   margin: 0;
 }
+/* ════════════════════════════════════════════════════════════════════
+   📝 EDITOR DE ROTEIRO — Cole este bloco INTEIRO no final do seu app.css
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ═══ TOOLBAR DE EDIÇÃO ═══ */
+#roteiro-edit-toolbar {
+  display: flex;
+  gap: 8px;
+  margin: 10px 16px 14px;
+}
+
+.btn-edit-roteiro,
+.btn-reset-roteiro {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  color: #ccc;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-edit-roteiro:hover,
+.btn-reset-roteiro:hover {
+  background: #222;
+  border-color: var(--green);
+  color: #fff;
+}
+
+.btn-edit-roteiro.active {
+  background: var(--green);
+  border-color: var(--green);
+  color: #000;
+}
+
+.btn-reset-roteiro {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+}
+
+/* ═══ MODO EDIÇÃO ATIVO ═══ */
+.edit-mode .day-block {
+  border: 1px dashed #3a3a3a;
+}
+
+.edit-mode .attraction-item {
+  position: relative;
+  padding-right: 8px;
+}
+
+/* Esconde o checkbox de "concluído" no modo edição pra não confundir */
+.edit-mode .item-check,
+.edit-mode .btn-roteiro-desconto {
+  display: none !important;
+}
+
+/* ═══ CONTROLES NO HEADER DO DIA ═══ */
+.day-edit-controls {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+}
+
+.day-edit-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 8px;
+  color: #999;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.day-edit-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.day-edit-btn:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.day-edit-btn.danger:hover {
+  background: #3a1414;
+  border-color: #d94545;
+  color: #ff6b6b;
+}
+
+/* ═══ CONTROLES EM CADA ATRAÇÃO ═══ */
+.attr-edit-controls {
+  display: flex;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #2a2a2a;
+  width: 100%;
+}
+
+.attr-edit-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #161616;
+  border: 1px solid #2a2a2a;
+  border-radius: 7px;
+  color: #888;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s ease;
+}
+
+.attr-edit-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.attr-edit-btn:hover:not(:disabled) {
+  background: #232323;
+  color: #fff;
+  border-color: #3a3a3a;
+}
+
+.attr-edit-btn.danger:hover {
+  background: #3a1414;
+  border-color: #d94545;
+  color: #ff6b6b;
+}
+
+.attr-edit-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Faz o .attraction-item virar grid pra acomodar os botões embaixo */
+.edit-mode .attraction-item {
+  flex-wrap: wrap;
+}
+
+/* ═══ BOTÕES "+ ADICIONAR" ═══ */
+.btn-add-atracao,
+.btn-add-dia {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: calc(100% - 32px);
+  margin: 10px 16px;
+  padding: 10px 14px;
+  background: transparent;
+  border: 1px dashed #3a3a3a;
+  border-radius: 10px;
+  color: #888;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-add-atracao:hover,
+.btn-add-dia:hover {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(40, 200, 100, 0.04);
+}
+
+.btn-add-dia {
+  margin: 20px 16px 10px;
+  padding: 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ═══ MODAL DE EDIÇÃO ═══ */
+.editor-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 9999;
+  animation: editor-fade-in 0.2s ease;
+}
+
+@keyframes editor-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.editor-modal {
+  width: 100%;
+  max-width: 480px;
+  background: #121212;
+  border-radius: 16px 16px 0 0;
+  border-top: 1px solid #2a2a2a;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  animation: editor-slide-up 0.25s ease;
+}
+
+@keyframes editor-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.editor-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #1f1f1f;
+}
+
+.editor-modal-header h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+}
+
+.editor-modal-close {
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.editor-modal-close:hover {
+  background: #1f1f1f;
+  color: #fff;
+}
+
+.editor-modal-body {
+  padding: 16px 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.editor-modal-body label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #999;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 14px 0 6px;
+}
+
+.editor-modal-body label:first-child {
+  margin-top: 0;
+}
+
+.editor-modal-body input[type="text"],
+.editor-modal-body textarea {
+  width: 100%;
+  padding: 11px 12px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 9px;
+  color: #fff;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.editor-modal-body input[type="text"]:focus,
+.editor-modal-body textarea:focus {
+  border-color: var(--green);
+}
+
+.editor-modal-body textarea {
+  resize: vertical;
+  min-height: 70px;
+  font-family: inherit;
+}
+
+.editor-checkbox {
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 4px !important;
+  cursor: pointer;
+  text-transform: none !important;
+  font-size: 13px !important;
+  letter-spacing: 0 !important;
+  color: #ccc !important;
+  font-weight: 600 !important;
+}
+
+.editor-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--green);
+  cursor: pointer;
+}
+
+.editor-modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 14px 20px 20px;
+  border-top: 1px solid #1f1f1f;
+}
+
+.editor-btn-cancelar,
+.editor-btn-salvar {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: all 0.15s ease;
+}
+
+.editor-btn-cancelar {
+  background: #1f1f1f;
+  color: #aaa;
+}
+
+.editor-btn-cancelar:hover {
+  background: #2a2a2a;
+  color: #fff;
+}
+
+.editor-btn-salvar {
+  background: var(--green);
+  color: #000;
+}
+
+.editor-btn-salvar:hover {
+  filter: brightness(1.1);
+}
+
+/* Safe-area pro iPhone */
+@supports (padding: max(0px)) {
+  .editor-modal-footer {
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+}
