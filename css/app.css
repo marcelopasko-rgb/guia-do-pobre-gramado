@@ -1620,3 +1620,95 @@ s{color:#555;font-weight:500;}
     padding-bottom: max(20px, env(safe-area-inset-bottom));
   }
 }
+/* ════════════════════════════════════════════════════════════════════
+   📝 CSS DO AUTOCOMPLETE — Cole no FINAL do seu app.css
+   (depois do CSS do editor que você já colou)
+   ════════════════════════════════════════════════════════════════════ */
+
+.autocomplete-wrap {
+  position: relative;
+}
+
+.autocomplete-list {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  z-index: 10;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+.autocomplete-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #232323;
+  transition: background 0.12s ease;
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-item:hover {
+  background: #232323;
+}
+
+.ac-emoji {
+  font-size: 20px;
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+}
+
+.ac-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ac-nome {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+
+.ac-meta {
+  font-size: 10px;
+  color: #888;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Scrollbar discreta */
+.autocomplete-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.autocomplete-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.autocomplete-list::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 3px;
+}
+
+.autocomplete-list::-webkit-scrollbar-thumb:hover {
+  background: #444;
+}
