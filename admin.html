@@ -23,105 +23,74 @@
   --blue:#58a6ff;
   --teal:#39d353;
   --accent:#f0b429;
+  --purple:#a371f7;
 }
 body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;min-height:100vh;}
 
-/* ── LOGIN ── */
-#login-screen{
-  display:flex;align-items:center;justify-content:center;
-  min-height:100vh;flex-direction:column;gap:24px;
-}
-.login-box{
-  background:var(--bg2);border:1px solid var(--border);border-radius:12px;
-  padding:40px;width:100%;max-width:360px;
-}
-.login-logo{
-  font-family:'Syne',sans-serif;font-size:22px;font-weight:900;
-  color:var(--accent);margin-bottom:8px;letter-spacing:-0.5px;
-}
+#login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:24px;}
+.login-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:40px;width:100%;max-width:360px;}
+.login-logo{font-family:'Syne',sans-serif;font-size:22px;font-weight:900;color:var(--accent);margin-bottom:8px;letter-spacing:-0.5px;}
 .login-sub{font-size:11px;color:var(--muted);margin-bottom:28px;}
 .login-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;display:block;}
-.login-input{
-  width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
-  padding:10px 14px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;
-  outline:none;transition:border-color 0.2s;
-}
+.login-input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:13px;outline:none;transition:border-color 0.2s;}
 .login-input:focus{border-color:var(--accent);}
-.login-btn{
-  width:100%;margin-top:16px;background:var(--accent);color:#0d0a00;border:none;
-  border-radius:8px;padding:11px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;
-  cursor:pointer;transition:opacity 0.15s;letter-spacing:0.3px;
-}
+.login-btn{width:100%;margin-top:16px;background:var(--accent);color:#0d0a00;border:none;border-radius:8px;padding:11px;font-family:'Syne',sans-serif;font-size:13px;font-weight:800;cursor:pointer;transition:opacity 0.15s;letter-spacing:0.3px;}
 .login-btn:hover{opacity:0.88;}
 .login-err{font-size:11px;color:var(--red);margin-top:10px;display:none;}
 
-/* ── DASHBOARD ── */
 #dashboard{display:none;}
-.topbar{
-  background:var(--bg2);border-bottom:1px solid var(--border);
-  padding:14px 24px;display:flex;align-items:center;justify-content:space-between;
-  position:sticky;top:0;z-index:100;
-}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:12px;}
 .topbar-logo{font-family:'Syne',sans-serif;font-size:16px;font-weight:900;color:var(--accent);}
 .topbar-meta{font-size:10px;color:var(--muted);}
-.topbar-right{display:flex;align-items:center;gap:16px;}
-.refresh-btn{
-  background:var(--bg3);border:1px solid var(--border2);color:var(--muted);
-  border-radius:6px;padding:6px 12px;font-size:10px;font-family:'JetBrains Mono',monospace;
-  cursor:pointer;transition:all 0.15s;font-weight:600;
-}
+.topbar-right{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.refresh-btn{background:var(--bg3);border:1px solid var(--border2);color:var(--muted);border-radius:6px;padding:6px 12px;font-size:10px;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all 0.15s;font-weight:600;}
 .refresh-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* ── FILTRO DE PERÍODO ── */
+.periodo-filter{display:flex;gap:4px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:3px;}
+.periodo-btn{background:transparent;border:none;color:var(--muted);font-family:inherit;font-size:10px;font-weight:600;padding:6px 12px;border-radius:5px;cursor:pointer;transition:all 0.15s;text-transform:uppercase;letter-spacing:0.5px;}
+.periodo-btn:hover{color:var(--text);}
+.periodo-btn.active{background:var(--accent);color:#0d0a00;}
 
 .content{padding:24px;max-width:1200px;margin:0 auto;}
 
-/* ── STATS ── */
 .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px;}
-.stat-card{
-  background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;
-  position:relative;overflow:hidden;
-}
-.stat-card::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:2px;
-}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:18px 20px;position:relative;overflow:hidden;}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;}
 .stat-card.green::before{background:var(--green);}
 .stat-card.yellow::before{background:var(--yellow);}
 .stat-card.orange::before{background:var(--orange);}
 .stat-card.blue::before{background:var(--blue);}
+.stat-card.red::before{background:var(--red);}
+.stat-card.purple::before{background:var(--purple);}
 .stat-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1.2px;font-weight:600;margin-bottom:10px;}
 .stat-value{font-family:'Syne',sans-serif;font-size:32px;font-weight:900;line-height:1;}
 .stat-value.green{color:var(--green);}
 .stat-value.yellow{color:var(--yellow);}
 .stat-value.orange{color:var(--orange);}
 .stat-value.blue{color:var(--blue);}
+.stat-value.red{color:var(--red);}
+.stat-value.purple{color:var(--purple);}
 .stat-sub{font-size:10px;color:var(--muted);margin-top:6px;}
 
-/* ── SECTIONS ── */
 .section{margin-bottom:24px;}
-.section-title{
-  font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;
-  font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;
-}
+.section-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
 .section-title::after{content:'';flex:1;height:1px;background:var(--border);}
 
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
 @media(max-width:700px){.two-col{grid-template-columns:1fr;}}
 
-/* ── CHART ── */
-.chart-card{
-  background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;
-}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
+@media(max-width:900px){.three-col{grid-template-columns:1fr 1fr;}}
+@media(max-width:600px){.three-col{grid-template-columns:1fr;}}
+
+.chart-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;}
 .chart-title{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:16px;text-transform:uppercase;letter-spacing:1px;}
 .chart-wrap{position:relative;height:200px;}
 
-/* ── RANKING ── */
-.rank-card{
-  background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;
-}
+.rank-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:20px;}
 .rank-title{font-size:11px;color:var(--muted);font-weight:600;margin-bottom:14px;text-transform:uppercase;letter-spacing:1px;}
-.rank-item{
-  display:flex;align-items:center;gap:10px;padding:7px 0;
-  border-bottom:1px solid var(--border);
-}
+.rank-item{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);}
 .rank-item:last-child{border-bottom:none;}
 .rank-num{font-size:10px;color:var(--muted);width:16px;text-align:right;flex-shrink:0;}
 .rank-bar-wrap{flex:1;min-width:0;}
@@ -130,21 +99,11 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 .rank-bar-fill{height:100%;border-radius:100px;transition:width 0.8s cubic-bezier(0.34,1.2,0.64,1);}
 .rank-count{font-size:11px;font-weight:700;flex-shrink:0;width:28px;text-align:right;}
 
-/* ── FEED ── */
-.feed-card{
-  background:var(--bg2);border:1px solid var(--border);border-radius:10px;
-  overflow:hidden;
-}
+.feed-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
 .feed-title{font-size:11px;color:var(--muted);font-weight:600;padding:16px 20px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);}
-.feed-item{
-  display:flex;align-items:center;gap:12px;padding:10px 20px;
-  border-bottom:1px solid var(--border);font-size:11px;
-}
+.feed-item{display:flex;align-items:center;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border);font-size:11px;}
 .feed-item:last-child{border-bottom:none;}
-.feed-badge{
-  font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;
-  flex-shrink:0;text-transform:uppercase;letter-spacing:0.5px;
-}
+.feed-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;text-transform:uppercase;letter-spacing:0.5px;}
 .badge-parque{background:rgba(240,180,41,0.15);color:var(--yellow);}
 .badge-restaurante{background:rgba(63,185,80,0.15);color:var(--green);}
 .badge-atracao{background:rgba(88,166,255,0.15);color:var(--blue);}
@@ -153,57 +112,43 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 .badge-login-fail{background:rgba(248,81,73,0.15);color:var(--red);}
 .badge-post-ok{background:rgba(57,211,83,0.15);color:var(--teal);}
 .badge-post-fail{background:rgba(248,81,73,0.15);color:var(--red);}
+.badge-open{background:rgba(163,113,247,0.15);color:var(--purple);}
 .feed-nome{flex:1;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .feed-time{color:var(--muted);font-size:10px;flex-shrink:0;}
 
-/* ── LOADING ── */
-.loading{
-  display:flex;align-items:center;justify-content:center;
-  padding:40px;color:var(--muted);font-size:11px;gap:8px;
-}
+.loading{display:flex;align-items:center;justify-content:center;padding:40px;color:var(--muted);font-size:11px;gap:8px;}
 .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blink 1.2s ease-in-out infinite;}
 .dot:nth-child(2){animation-delay:0.2s;}
 .dot:nth-child(3){animation-delay:0.4s;}
 @keyframes blink{0%,80%,100%{opacity:0.2;}40%{opacity:1;}}
 
-/* ── TABELA USUÁRIOS ── */
 .table-card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
 .table-card table{width:100%;border-collapse:collapse;font-size:11px;}
-.table-card th{
-  background:var(--bg3);color:var(--muted);font-size:9px;text-transform:uppercase;
-  letter-spacing:1px;font-weight:700;padding:10px 16px;text-align:left;
-  border-bottom:1px solid var(--border);
-}
+.table-card th{background:var(--bg3);color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:1px;font-weight:700;padding:10px 16px;text-align:left;border-bottom:1px solid var(--border);}
 .table-card td{padding:9px 16px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle;}
 .table-card tr:last-child td{border-bottom:none;}
 .table-card tr:hover td{background:var(--bg3);}
 .user-email{color:var(--blue);font-size:11px;}
-.user-badge{
-  font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;
-  text-transform:uppercase;letter-spacing:0.5px;
-}
+.user-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;text-transform:uppercase;letter-spacing:0.5px;}
 .badge-ativo{background:rgba(63,185,80,0.15);color:var(--green);}
 .badge-inativo{background:rgba(139,148,158,0.1);color:var(--muted);}
 
-/* ── PICO ── */
 .pico-grid{display:grid;grid-template-columns:repeat(12,1fr);gap:4px;}
 .pico-col{display:flex;flex-direction:column;align-items:center;gap:4px;}
 .pico-bar-wrap{width:100%;height:60px;display:flex;align-items:flex-end;}
 .pico-bar{width:100%;border-radius:3px 3px 0 0;min-height:2px;transition:height 0.6s;}
 .pico-label{font-size:8px;color:var(--muted);}
 
-/* ── STAT RED ── */
-.stat-card.red::before{background:var(--red);}
-.stat-value.red{color:var(--red);}
-
-.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;}
-@media(max-width:900px){.three-col{grid-template-columns:1fr 1fr;}}
-@media(max-width:600px){.three-col{grid-template-columns:1fr;}}
-
 .sem-clique{font-size:11px;color:var(--muted);padding:6px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;}
 .sem-clique:last-child{border-bottom:none;}
 .sem-clique-dot{width:5px;height:5px;border-radius:50%;background:var(--border2);flex-shrink:0;}
 .empty{padding:32px;text-align:center;color:var(--muted);font-size:11px;}
+
+/* RETENÇÃO */
+.retention-card{display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;}
+.retention-big{font-family:'Syne',sans-serif;font-size:40px;font-weight:900;line-height:1;margin-bottom:8px;}
+.retention-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;}
+.retention-sub{font-size:10px;color:var(--muted);margin-top:4px;}
 </style>
 </head>
 <body>
@@ -225,6 +170,11 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
   <div class="topbar">
     <div class="topbar-logo">⚡ Analytics — Guia do Pobre</div>
     <div class="topbar-right">
+      <div class="periodo-filter">
+        <button class="periodo-btn" data-periodo="7" onclick="trocarPeriodo('7')">7d</button>
+        <button class="periodo-btn" data-periodo="30" onclick="trocarPeriodo('30')">30d</button>
+        <button class="periodo-btn active" data-periodo="all" onclick="trocarPeriodo('all')">Tudo</button>
+      </div>
       <span class="topbar-meta" id="last-update">—</span>
       <button class="refresh-btn" onclick="carregarDados()">↻ Atualizar</button>
       <button class="refresh-btn" onclick="logout()" title="Sair">⎋ Sair</button>
@@ -233,7 +183,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 
   <div class="content">
 
-    <!-- STATS -->
+    <!-- KPIs PRINCIPAIS -->
     <div class="section">
       <div class="section-title">Resumo</div>
       <div class="stats-grid">
@@ -245,12 +195,12 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
         <div class="stat-card yellow">
           <div class="stat-label">Esta Semana</div>
           <div class="stat-value yellow" id="stat-semana">—</div>
-          <div class="stat-sub" id="stat-semana-sub">carregando...</div>
+          <div class="stat-sub">últimos 7 dias</div>
         </div>
         <div class="stat-card orange">
           <div class="stat-label">Este Mês</div>
           <div class="stat-value orange" id="stat-mes">—</div>
-          <div class="stat-sub" id="stat-mes-sub">carregando...</div>
+          <div class="stat-sub">últimos 30 dias</div>
         </div>
         <div class="stat-card blue">
           <div class="stat-label">Usuários Únicos</div>
@@ -260,12 +210,34 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
         <div class="stat-card red">
           <div class="stat-label">Total de Cliques</div>
           <div class="stat-value red" id="stat-total">—</div>
-          <div class="stat-sub" id="stat-total-sub">carregando...</div>
+          <div class="stat-sub" id="stat-total-sub">todos os tempos</div>
         </div>
         <div class="stat-card green">
           <div class="stat-label">Média / Usuário</div>
           <div class="stat-value green" id="stat-media">—</div>
           <div class="stat-sub">cliques por usuário</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🆕 TAXA DE CONVERSÃO + ABERTURAS -->
+    <div class="section">
+      <div class="section-title">🎯 Conversão</div>
+      <div class="stats-grid">
+        <div class="stat-card purple">
+          <div class="stat-label">Aberturas do App</div>
+          <div class="stat-value purple" id="stat-opens">—</div>
+          <div class="stat-sub" id="stat-opens-sub">sessões totais</div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-label">Usuários que clicaram em desconto</div>
+          <div class="stat-value yellow" id="stat-com-desconto">—</div>
+          <div class="stat-sub">interagiram com alguma oferta</div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-label">Taxa de Conversão</div>
+          <div class="stat-value green" id="stat-conv">—</div>
+          <div class="stat-sub" id="stat-conv-sub">cliques em desconto / aberturas</div>
         </div>
       </div>
     </div>
@@ -280,7 +252,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       </div>
     </div>
 
-    <!-- RANKINGS EXPANDIDO -->
+    <!-- RANKINGS -->
     <div class="section">
       <div class="section-title">Rankings completos</div>
       <div class="three-col">
@@ -299,7 +271,30 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       </div>
     </div>
 
-    <!-- FUNIL DE LOGIN -->
+    <!-- 🆕 RETENÇÃO -->
+    <div class="section">
+      <div class="section-title">📈 Retenção</div>
+      <div class="three-col">
+        <div class="retention-card">
+          <div class="retention-big" style="color:var(--green);" id="ret-d1">—</div>
+          <div class="retention-label">Retenção D+1</div>
+          <div class="retention-sub">voltam no dia seguinte</div>
+        </div>
+        <div class="retention-card">
+          <div class="retention-big" style="color:var(--yellow);" id="ret-d7">—</div>
+          <div class="retention-label">Retenção D+7</div>
+          <div class="retention-sub">voltam após 1 semana</div>
+        </div>
+        <div class="retention-card">
+          <div class="retention-big" style="color:var(--orange);" id="ret-d30">—</div>
+          <div class="retention-label">Retenção D+30</div>
+          <div class="retention-sub">voltam após 1 mês</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:8px;text-align:center;" id="ret-amostra">—</div>
+    </div>
+
+    <!-- FUNIL LOGIN -->
     <div class="section">
       <div class="section-title">Funil de login</div>
       <div class="stats-grid">
@@ -324,7 +319,6 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
           <div class="stat-sub" id="stat-login-falhas-sub">—</div>
         </div>
       </div>
-
       <div class="two-col" style="margin-top:16px;">
         <div class="rank-card">
           <div class="rank-title">❌ Motivos de falha</div>
@@ -337,14 +331,14 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       </div>
     </div>
 
-    <!-- ENGAJAMENTO COMUNIDADE -->
+    <!-- COMUNIDADE -->
     <div class="section">
       <div class="section-title">Comunidade</div>
       <div class="stats-grid">
         <div class="stat-card green">
           <div class="stat-label">Posts publicados</div>
           <div class="stat-value green" id="stat-posts-ok">—</div>
-          <div class="stat-sub" id="stat-posts-ok-sub">todos os tempos</div>
+          <div class="stat-sub">todos os tempos</div>
         </div>
         <div class="stat-card red">
           <div class="stat-label">Falhas de publicação</div>
@@ -359,7 +353,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       </div>
     </div>
 
-    <!-- HORÁRIOS DE PICO -->
+    <!-- PICO -->
     <div class="section">
       <div class="section-title">Horários de pico</div>
       <div class="chart-card">
@@ -368,18 +362,14 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       </div>
     </div>
 
-    <!-- USUÁRIOS + SEM CLIQUE -->
+    <!-- USUÁRIOS / SEM CLIQUE -->
     <div class="section">
       <div class="section-title">Usuários e engajamento</div>
       <div class="two-col">
-
-        <!-- Top usuários -->
         <div class="rank-card">
           <div class="rank-title">👤 Usuários mais ativos</div>
           <div id="rank-usuarios"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
         </div>
-
-        <!-- Itens sem clique -->
         <div class="rank-card">
           <div class="rank-title">💤 Parques sem nenhum clique</div>
           <div id="sem-cliques"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>
@@ -387,20 +377,13 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       </div>
     </div>
 
-    <!-- LISTA DE USUÁRIOS CADASTRADOS -->
+    <!-- TABELA USUÁRIOS -->
     <div class="section">
       <div class="section-title">Usuários cadastrados</div>
       <div class="table-card">
         <table>
           <thead>
-            <tr>
-              <th>#</th>
-              <th>E-mail</th>
-              <th>Cadastro</th>
-              <th>Último acesso</th>
-              <th>Cliques</th>
-              <th>Status</th>
-            </tr>
+            <tr><th>#</th><th>E-mail</th><th>Cadastro</th><th>Último acesso</th><th>Cliques</th><th>Status</th></tr>
           </thead>
           <tbody id="tabela-usuarios">
             <tr><td colspan="6"><div class="loading"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></td></tr>
@@ -409,7 +392,7 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
       </div>
     </div>
 
-    <!-- FEED RECENTE -->
+    <!-- FEED -->
     <div class="section">
       <div class="section-title">Eventos recentes</div>
       <div class="feed-card">
@@ -422,12 +405,8 @@ body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospa
 </div>
 
 <script>
-// ⚠️ Sem credenciais aqui! Tanto a senha do admin quanto a service_key do
-// Supabase agora vivem em Environment Variables do Vercel e só são acessadas
-// pelos endpoints serverless em /api/admin-login e /api/admin-stats.
 const TOKEN_STORAGE_KEY = 'admin_session_token';
 
-// Lista completa de parques para detectar os sem clique
 const TODOS_PARQUES = ['Snowland','Skyglass Canela','Bondinhos Aéreos Canela','Space Adventure',
   'Parque Terra Mágica Florybal','Mundo a Vapor','NBA Park','Alpen Park','Oficina Criamigos',
   'Mini Mundo','Vila da Mônica','Olivas de Gramado','Acquamotion','Lumni Experience',
@@ -440,6 +419,8 @@ const TODOS_PARQUES = ['Snowland','Skyglass Canela','Bondinhos Aéreos Canela','
   'Museu do Vinho','Pedras do Silêncio','Canyons e Balões','Kongo Pizzaria','Cervejaria Farol'];
 
 let chartInstance = null;
+let periodoAtual = 'all';
+let lastPayload = null; // pra evitar refetch nos renders secundários
 
 async function tentarLogin() {
   const v = document.getElementById('senha-input').value;
@@ -457,17 +438,14 @@ async function tentarLogin() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ senha: v })
     });
-
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       errEl.textContent = data.error || 'Senha incorreta.';
       errEl.style.display = 'block';
       return;
     }
-
     const { token } = await res.json();
     sessionStorage.setItem(TOKEN_STORAGE_KEY, token);
-
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('dashboard').style.display = 'block';
     carregarDados();
@@ -480,24 +458,24 @@ async function tentarLogin() {
   }
 }
 
-function getToken() {
-  return sessionStorage.getItem(TOKEN_STORAGE_KEY) || '';
-}
+function getToken() { return sessionStorage.getItem(TOKEN_STORAGE_KEY) || ''; }
+function logout() { sessionStorage.removeItem(TOKEN_STORAGE_KEY); location.reload(); }
 
-function logout() {
-  sessionStorage.removeItem(TOKEN_STORAGE_KEY);
-  location.reload();
+function trocarPeriodo(p) {
+  periodoAtual = p;
+  document.querySelectorAll('.periodo-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.periodo === p);
+  });
+  carregarDados();
 }
 
 async function carregarDados() {
   document.getElementById('last-update').textContent = 'Atualizando...';
   try {
-    const res = await fetch('/api/admin-stats', {
+    const res = await fetch('/api/admin-stats?periodo=' + periodoAtual, {
       headers: { 'Authorization': 'Bearer ' + getToken() }
     });
-
     if (res.status === 401) {
-      // Token inválido ou expirado — volta pra tela de login
       sessionStorage.removeItem(TOKEN_STORAGE_KEY);
       document.getElementById('login-screen').style.display = 'flex';
       document.getElementById('dashboard').style.display = 'none';
@@ -506,26 +484,25 @@ async function carregarDados() {
       errEl.style.display = 'block';
       return;
     }
-
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       throw new Error(data.error || ('HTTP ' + res.status));
     }
-
     const payload = await res.json();
-    const dados = payload.eventos || [];
-    const users = payload.users || [];
+    lastPayload = payload;
 
-    renderStats(dados, users);
-    renderChart(dados);
-    renderRankings(dados);
-    renderFunilLogin(dados);
-    renderComunidadeStats(dados);
-    renderPico(dados);
-    renderTopUsuarios(dados, users);
-    renderSemCliques(dados);
-    renderTabelaUsuarios(dados, users);
-    renderFeed(dados);
+    renderKPIs(payload);
+    renderConversao(payload);
+    renderChart(payload.cliques_por_dia || []);
+    renderRankings(payload.rankings || {});
+    renderRetencao(payload.retencao || {});
+    renderFunilLogin(payload.feed || []);
+    renderComunidadeStats(payload.feed || []);
+    renderPico(payload.feed || []);
+    renderTopUsuarios(payload.feed || [], payload.users || []);
+    renderSemCliques(payload.rankings?.parques || []);
+    renderTabelaUsuarios(payload.feed || [], payload.users || []);
+    renderFeed(payload.feed || []);
 
     const agora = new Date();
     document.getElementById('last-update').textContent =
@@ -536,7 +513,6 @@ async function carregarDados() {
   }
 }
 
-// Auto-login se já tem token válido na sessão
 window.addEventListener('DOMContentLoaded', function() {
   if (getToken()) {
     document.getElementById('login-screen').style.display = 'none';
@@ -545,114 +521,122 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-function hoje() { return new Date().toISOString().split('T')[0]; }
-function diasAtras(n) {
-  const d = new Date(); d.setDate(d.getDate() - n);
-  return d.toISOString().split('T')[0];
-}
-
-/* ── STATS ── */
-function renderStats(dados, users) {
-  const dHoje   = hoje();
-  const dSemana = diasAtras(7);
-  const dMes    = diasAtras(30);
-
-  const cliquesHoje   = dados.filter(e => e.criado_em?.startsWith(dHoje)).length;
-  const cliquesSemana = dados.filter(e => e.criado_em >= dSemana).length;
-  const cliquesMes    = dados.filter(e => e.criado_em >= dMes).length;
-  const usersUnicos   = new Set(dados.filter(e => e.user_id).map(e => e.user_id)).size;
-  const total         = dados.length;
-  const media         = usersUnicos > 0 ? (total / usersUnicos).toFixed(1) : '—';
-
-  const topHoje = dados
-    .filter(e => e.criado_em?.startsWith(dHoje) && e.payload?.nome)
-    .reduce((acc, e) => { acc[e.payload.nome] = (acc[e.payload.nome]||0)+1; return acc; }, {});
-  const topNome = Object.entries(topHoje).sort((a,b)=>b[1]-a[1])[0]?.[0] || '—';
-
-  document.getElementById('stat-hoje').textContent     = cliquesHoje;
-  document.getElementById('stat-hoje-sub').textContent = 'Top: ' + topNome;
-  document.getElementById('stat-semana').textContent   = cliquesSemana;
-  document.getElementById('stat-semana-sub').textContent = 'últimos 7 dias';
-  document.getElementById('stat-mes').textContent      = cliquesMes;
-  document.getElementById('stat-mes-sub').textContent  = 'últimos 30 dias';
-  document.getElementById('stat-users').textContent    = usersUnicos;
-  document.getElementById('stat-users-sub').textContent = users.length + ' cadastrados total';
-  document.getElementById('stat-total').textContent    = total;
-  document.getElementById('stat-total-sub').textContent = 'todos os tempos';
-  document.getElementById('stat-media').textContent    = media;
-}
-
-/* ── GRÁFICO ── */
-function renderChart(dados) {
-  const dias = [], counts = [];
-  for (let i = 29; i >= 0; i--) {
-    const d = diasAtras(i);
-    dias.push(d.slice(5));
-    counts.push(dados.filter(e => e.criado_em?.startsWith(d)).length);
+// ── KPIs PRINCIPAIS ─────────────────────────────────────────────────
+function renderKPIs(payload) {
+  const k = payload.kpis || {};
+  document.getElementById('stat-hoje').textContent = k.cliques_hoje ?? '—';
+  document.getElementById('stat-hoje-sub').textContent = k.cliques_hoje > 0 ? 'cliques hoje' : 'sem cliques hoje';
+  document.getElementById('stat-semana').textContent = k.cliques_semana ?? '—';
+  document.getElementById('stat-mes').textContent = k.cliques_mes ?? '—';
+  document.getElementById('stat-users').textContent = k.users_unicos ?? '—';
+  document.getElementById('stat-users-sub').textContent = (k.users_cadastrados ?? 0) + ' cadastrados total';
+  document.getElementById('stat-total').textContent = k.total_cliques ?? '—';
+  if (k.periodo === '7' || k.periodo === '30') {
+    document.getElementById('stat-total-sub').textContent = 'últimos ' + k.periodo + ' dias: ' + (k.cliques_periodo ?? 0);
+  } else {
+    document.getElementById('stat-total-sub').textContent = 'todos os tempos';
   }
+  document.getElementById('stat-media').textContent = k.media_cliques_user ?? '—';
+}
+
+// ── CONVERSÃO ──────────────────────────────────────────────────────
+function renderConversao(payload) {
+  const k = payload.kpis || {};
+  const opens = k.app_opens || 0;
+  const comDesconto = k.users_com_desconto || 0;
+  const periodo = k.periodo;
+
+  document.getElementById('stat-opens').textContent = opens || '0';
+  document.getElementById('stat-com-desconto').textContent = comDesconto || '0';
+
+  // CASO 1: sem aberturas registradas ainda
+  if (opens === 0) {
+    document.getElementById('stat-conv').textContent = '—';
+    document.getElementById('stat-conv-sub').textContent = 'Adicione tracking de app_open pra ativar';
+    document.getElementById('stat-opens-sub').textContent = 'aguardando tracking';
+    return;
+  }
+
+  // CASO 2: dados desalinhados (cliques antigos > aberturas novas)
+  // Acontece quando você instalou o app_open DEPOIS de já ter cliques na base.
+  // Nesse caso, qualquer cálculo é furado.
+  if (comDesconto > opens) {
+    document.getElementById('stat-conv').textContent = '⏳';
+    document.getElementById('stat-conv-sub').textContent = 'Acumulando dados... aguarde 1-2 dias';
+    document.getElementById('stat-opens-sub').textContent = 'tracking recém-instalado';
+    return;
+  }
+
+  // CASO 3: cálculo normal — agora seguro
+  const conv = Math.round((comDesconto / opens) * 1000) / 10; // 1 casa decimal
+  document.getElementById('stat-conv').textContent = conv + '%';
+  document.getElementById('stat-conv-sub').textContent = comDesconto + ' de ' + opens + ' aberturas';
+  document.getElementById('stat-opens-sub').textContent = 'sessões totais';
+}
+
+// ── GRÁFICO ────────────────────────────────────────────────────────
+function renderChart(cliquesPorDia) {
+  const dias = cliquesPorDia.map(d => (d.dia || '').slice(5));
+  const counts = cliquesPorDia.map(d => d.cliques || 0);
   const ctx = document.getElementById('chart-dias').getContext('2d');
   if (chartInstance) chartInstance.destroy();
   chartInstance = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels: dias,
-      datasets: [{
-        data: counts,
-        backgroundColor: counts.map(v => v > 0 ? 'rgba(240,180,41,0.7)' : 'rgba(240,180,41,0.1)'),
-        borderColor: 'rgba(240,180,41,0.9)',
-        borderWidth: 1, borderRadius: 3,
-      }]
-    },
+    data: { labels: dias, datasets: [{ data: counts, backgroundColor: '#d29922', borderRadius: 4 }] },
     options: {
       responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false }, tooltip: {
-        backgroundColor: '#161b22', borderColor: '#21262d', borderWidth: 1,
-        titleColor: '#e6edf3', bodyColor: '#8b949e',
-        callbacks: { title: i => i[0].label, label: i => i.raw + ' cliques' }
-      }},
+      plugins: { legend: { display: false }, tooltip: { callbacks: { title: i => i[0].label, label: i => i.raw + ' cliques' } } },
       scales: {
-        x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { size: 9, family: 'JetBrains Mono' }, maxRotation: 45 } },
-        y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { size: 10, family: 'JetBrains Mono' }, stepSize: 1 }, beginAtZero: true }
+        x: { ticks: { color: '#8b949e', font: { size: 9, family: 'JetBrains Mono' } }, grid: { display: false } },
+        y: { ticks: { color: '#8b949e', font: { size: 9, family: 'JetBrains Mono' }, stepSize: 1 }, grid: { color: '#21262d', drawBorder: false }, beginAtZero: true }
       }
     }
   });
 }
 
-/* ── RANKINGS ── */
-function renderRankings(dados) {
-  document.getElementById('rank-parques').innerHTML    = buildRanking(agrupar(dados.filter(e => e.evento === 'clique_parque')), '#f0b429');
-  document.getElementById('rank-restaurantes').innerHTML = buildRanking(agrupar(dados.filter(e => e.evento === 'clique_restaurante')), '#3fb950');
-  document.getElementById('rank-atracoes').innerHTML   = buildRanking(agrupar(dados.filter(e => e.evento === 'clique_atracao')), '#58a6ff');
+// ── RANKINGS ───────────────────────────────────────────────────────
+function renderRankings(rankings) {
+  document.getElementById('rank-parques').innerHTML       = buildRanking(rankings.parques || [], '#f0b429');
+  document.getElementById('rank-restaurantes').innerHTML  = buildRanking(rankings.restaurantes || [], '#3fb950');
+  document.getElementById('rank-atracoes').innerHTML      = buildRanking(rankings.atracoes || [], '#58a6ff');
 }
-
-function agrupar(lista) {
-  const acc = {};
-  lista.forEach(e => { const n = e.payload?.nome || 'Desconhecido'; acc[n] = (acc[n]||0)+1; });
-  return Object.entries(acc).sort((a,b) => b[1]-a[1]).slice(0, 10);
-}
-
 function buildRanking(itens, cor) {
-  if (!itens.length) return '<div class="empty">Nenhum clique ainda.</div>';
-  const max = itens[0][1];
-  return itens.map(([nome, count], i) => `
+  if (!itens.length) return '<div class="empty">Nenhum clique no período.</div>';
+  const max = itens[0].cliques || 1;
+  return itens.map((item, i) => `
     <div class="rank-item">
       <span class="rank-num">${i+1}</span>
       <div class="rank-bar-wrap">
-        <div class="rank-name">${nome}</div>
-        <div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${Math.round(count/max*100)}%;background:${cor};"></div></div>
+        <div class="rank-name">${item.nome}</div>
+        <div class="rank-bar-bg"><div class="rank-bar-fill" style="width:${Math.round(item.cliques/max*100)}%;background:${cor};"></div></div>
       </div>
-      <span class="rank-count" style="color:${cor};">${count}</span>
+      <span class="rank-count" style="color:${cor};">${item.cliques}</span>
     </div>`).join('');
 }
 
-/* ── FUNIL DE LOGIN ── */
+// ── RETENÇÃO ───────────────────────────────────────────────────────
+function renderRetencao(ret) {
+  const amostra = ret.total_amostra || 0;
+  if (amostra === 0) {
+    document.getElementById('ret-d1').textContent = '—';
+    document.getElementById('ret-d7').textContent = '—';
+    document.getElementById('ret-d30').textContent = '—';
+    document.getElementById('ret-amostra').textContent = 'Adicione tracking de app_open (ver instruções no LEIA-ME) pra ativar essas métricas';
+    return;
+  }
+  document.getElementById('ret-d1').textContent  = (ret.d1 ?? 0) + '%';
+  document.getElementById('ret-d7').textContent  = (ret.d7 ?? 0) + '%';
+  document.getElementById('ret-d30').textContent = (ret.d30 ?? 0) + '%';
+  document.getElementById('ret-amostra').textContent = 'Baseado em ' + amostra + ' usuários únicos';
+}
+
+// ── FUNIL LOGIN ────────────────────────────────────────────────────
 function renderFunilLogin(dados) {
   const sends      = dados.filter(e => e.evento === 'login_send_success');
   const sendsFail  = dados.filter(e => e.evento === 'login_send_failed');
   const verifies   = dados.filter(e => e.evento === 'login_verify_success');
   const verifyFail = dados.filter(e => e.evento === 'login_verify_failed');
 
-  // Stats principais
   const totalSends    = sends.length;
   const totalVerifies = verifies.length;
   const totalFalhas   = verifyFail.length;
@@ -664,28 +648,15 @@ function renderFunilLogin(dados) {
   document.getElementById('stat-login-success-sub').textContent = 'códigos verificados';
   document.getElementById('stat-login-taxa').textContent     = taxa + '%';
   document.getElementById('stat-login-falhas').textContent   = totalFalhas;
-  document.getElementById('stat-login-falhas-sub').textContent = totalSends > 0
-    ? Math.round((totalFalhas / totalSends) * 100) + '% das solicitações'
-    : '—';
+  document.getElementById('stat-login-falhas-sub').textContent = totalSends > 0 ? Math.round((totalFalhas / totalSends) * 100) + '% das solicitações' : '—';
 
-  // Ranking de motivos de falha
   const motivos = {};
-  [...sendsFail, ...verifyFail].forEach(e => {
-    const m = e.payload?.motivo || 'desconhecido';
-    motivos[m] = (motivos[m] || 0) + 1;
-  });
+  [...sendsFail, ...verifyFail].forEach(e => { const m = e.payload?.motivo || 'desconhecido'; motivos[m] = (motivos[m] || 0) + 1; });
   const motivosLabels = {
-    'email_vazio':           'E-mail vazio',
-    'email_invalido':        'E-mail inválido',
-    'supabase_indisponivel': 'Supabase indisponível',
-    'email_nao_cadastrado':  'E-mail não cadastrado',
-    'rate_limit':            'Rate limit (muitas tentativas)',
-    'erro_desconhecido':     'Erro desconhecido',
-    'codigo_vazio':          'Código vazio',
-    'formato_invalido':      'Formato do código inválido',
-    'sem_email_na_sessao':   'Sessão expirou',
-    'expirado':              'Código expirado',
-    'codigo_invalido':       'Código incorreto',
+    'email_vazio':'E-mail vazio','email_invalido':'E-mail inválido','supabase_indisponivel':'Supabase indisponível',
+    'email_nao_cadastrado':'E-mail não cadastrado','rate_limit':'Rate limit (muitas tentativas)','erro_desconhecido':'Erro desconhecido',
+    'codigo_vazio':'Código vazio','formato_invalido':'Formato do código inválido','sem_email_na_sessao':'Sessão expirou',
+    'expirado':'Código expirado','codigo_invalido':'Código incorreto',
   };
   const motivosOrdenados = Object.entries(motivos).sort((a,b) => b[1]-a[1]);
   if (!motivosOrdenados.length) {
@@ -703,7 +674,6 @@ function renderFunilLogin(dados) {
       </div>`).join('');
   }
 
-  // Distribuição de tempo até verificar
   const faixas = { '0-30s': 0, '30-60s': 0, '1-2min': 0, '2-5min': 0, '5-15min': 0, '>15min': 0 };
   verifies.forEach(e => {
     const t = parseInt(e.payload?.tempo_desde_solicitacao_seg, 10);
@@ -717,7 +687,7 @@ function renderFunilLogin(dados) {
   });
   const totalTempo = Object.values(faixas).reduce((a,b) => a+b, 0);
   if (totalTempo === 0) {
-    document.getElementById('rank-tempo-otp').innerHTML = '<div class="empty">Nenhum login verificado ainda.</div>';
+    document.getElementById('rank-tempo-otp').innerHTML = '<div class="empty">Nenhum login verificado no período.</div>';
   } else {
     const maxT = Math.max(...Object.values(faixas));
     document.getElementById('rank-tempo-otp').innerHTML = Object.entries(faixas).map(([faixa, count], i) => `
@@ -732,52 +702,42 @@ function renderFunilLogin(dados) {
   }
 }
 
-/* ── COMUNIDADE STATS ── */
+// ── COMUNIDADE ─────────────────────────────────────────────────────
 function renderComunidadeStats(dados) {
-  const ok    = dados.filter(e => e.evento === 'post_publish_success');
-  const fail  = dados.filter(e => e.evento === 'post_publish_failed');
+  const ok = dados.filter(e => e.evento === 'post_publish_success');
+  const fail = dados.filter(e => e.evento === 'post_publish_failed');
   const comFoto = ok.filter(e => e.payload?.tem_foto === true).length;
-  const totalOk = ok.length;
-  const totalFail = fail.length;
-
-  document.getElementById('stat-posts-ok').textContent     = totalOk;
-  document.getElementById('stat-posts-fail').textContent   = totalFail;
-  document.getElementById('stat-posts-fail-sub').textContent = totalOk + totalFail > 0
-    ? Math.round((totalFail / (totalOk + totalFail)) * 100) + '% das tentativas'
-    : '—';
-  document.getElementById('stat-posts-foto').textContent   = comFoto;
-  document.getElementById('stat-posts-foto-sub').textContent = totalOk > 0
-    ? Math.round((comFoto / totalOk) * 100) + '% dos posts'
-    : '—';
+  const totalOk = ok.length, totalFail = fail.length;
+  document.getElementById('stat-posts-ok').textContent = totalOk;
+  document.getElementById('stat-posts-fail').textContent = totalFail;
+  document.getElementById('stat-posts-fail-sub').textContent = totalOk + totalFail > 0 ? Math.round((totalFail / (totalOk + totalFail)) * 100) + '% das tentativas' : '—';
+  document.getElementById('stat-posts-foto').textContent = comFoto;
+  document.getElementById('stat-posts-foto-sub').textContent = totalOk > 0 ? Math.round((comFoto / totalOk) * 100) + '% dos posts' : '—';
 }
 
-/* ── PICO DE HORÁRIOS ── */
+// ── PICO ──────────────────────────────────────────────────────────
 function renderPico(dados) {
   const contagem = Array(24).fill(0);
   dados.forEach(e => {
     if (!e.criado_em) return;
-    // Ajusta para horário de Brasília (UTC-3)
     const h = (new Date(e.criado_em).getUTCHours() - 3 + 24) % 24;
     contagem[h]++;
   });
   const max = Math.max(...contagem, 1);
-  // Mostra só 7h-23h (horário útil)
   const faixa = Array.from({length: 17}, (_, i) => i + 7);
   document.getElementById('pico-horas').innerHTML = faixa.map(h => {
     const pct = Math.round(contagem[h] / max * 100);
     const cor = pct > 70 ? 'var(--red)' : pct > 40 ? 'var(--orange)' : pct > 15 ? 'var(--yellow)' : 'var(--border2)';
     return `
       <div class="pico-col">
-        <div class="pico-bar-wrap">
-          <div class="pico-bar" style="height:${Math.max(pct,2)}%;background:${cor};width:100%;"></div>
-        </div>
+        <div class="pico-bar-wrap"><div class="pico-bar" style="height:${Math.max(pct,2)}%;background:${cor};width:100%;"></div></div>
         <div class="pico-label">${h}h</div>
         <div class="pico-label" style="color:var(--text);font-weight:700;">${contagem[h]||''}</div>
       </div>`;
   }).join('');
 }
 
-/* ── TOP USUÁRIOS ── */
+// ── TOP USUÁRIOS ──────────────────────────────────────────────────
 function renderTopUsuarios(dados, users) {
   const contagem = {};
   dados.filter(e => e.user_id).forEach(e => { contagem[e.user_id] = (contagem[e.user_id]||0)+1; });
@@ -799,38 +759,37 @@ function renderTopUsuarios(dados, users) {
   }).join('');
 }
 
-/* ── SEM CLIQUES ── */
-function renderSemCliques(dados) {
-  const comClique = new Set(dados.filter(e => e.evento==='clique_parque' && e.payload?.nome).map(e => e.payload.nome.toLowerCase()));
+// ── SEM CLIQUES ───────────────────────────────────────────────────
+function renderSemCliques(rankingParques) {
+  const comClique = new Set((rankingParques || []).map(p => (p.nome || '').toLowerCase()));
   const semClique = TODOS_PARQUES.filter(p => !comClique.has(p.toLowerCase()));
   if (!semClique.length) {
     document.getElementById('sem-cliques').innerHTML = '<div class="empty" style="color:var(--green);">✓ Todos têm pelo menos 1 clique!</div>';
     return;
   }
   document.getElementById('sem-cliques').innerHTML = semClique.map(p => `
-    <div class="sem-clique">
-      <div class="sem-clique-dot"></div>
-      <span>${p}</span>
-    </div>`).join('');
+    <div class="sem-clique"><div class="sem-clique-dot"></div><span>${p}</span></div>`).join('');
 }
 
-/* ── TABELA USUÁRIOS ── */
+// ── TABELA USUÁRIOS ──────────────────────────────────────────────
 function renderTabelaUsuarios(dados, users) {
   if (!users.length) {
-    document.getElementById('tabela-usuarios').innerHTML = '<tr><td colspan="6"><div class="empty">Não foi possível carregar usuários. Verifique a service key.</div></td></tr>';
+    document.getElementById('tabela-usuarios').innerHTML = '<tr><td colspan="6"><div class="empty">Não foi possível carregar usuários.</div></td></tr>';
     return;
   }
   const cliquesUser = {};
   dados.filter(e => e.user_id).forEach(e => { cliquesUser[e.user_id] = (cliquesUser[e.user_id]||0)+1; });
-
-  const sorted = [...users].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  
+  // Ordena por mais recente e LIMITA A 50
+  const sorted = [...users]
+    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 50);
+  
   document.getElementById('tabela-usuarios').innerHTML = sorted.map((u, i) => {
     const cliques = cliquesUser[u.id] || 0;
     const criado  = new Date(u.created_at).toLocaleDateString('pt-BR');
     const ultimo  = u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString('pt-BR') : '—';
-    const diasSem = u.last_sign_in_at
-      ? Math.floor((Date.now() - new Date(u.last_sign_in_at)) / 86400000)
-      : 999;
+    const diasSem = u.last_sign_in_at ? Math.floor((Date.now() - new Date(u.last_sign_in_at)) / 86400000) : 999;
     const ativo = diasSem <= 30;
     return `
       <tr>
@@ -841,30 +800,38 @@ function renderTabelaUsuarios(dados, users) {
         <td style="color:${cliques > 0 ? 'var(--yellow)' : 'var(--muted)'};font-weight:${cliques>0?'700':'400'};">${cliques}</td>
         <td><span class="user-badge ${ativo ? 'badge-ativo' : 'badge-inativo'}">${ativo ? 'Ativo' : 'Inativo'}</span></td>
       </tr>`;
-  }).join('');
+  }).join('') + `
+    <tr>
+      <td colspan="6" style="text-align:center;color:var(--muted);font-size:10px;padding:14px;font-style:italic;">
+        Mostrando os 50 cadastros mais recentes de um total de ${users.length} usuários
+      </td>
+    </tr>`;
 }
 
-/* ── FEED ── */
+// ── FEED ─────────────────────────────────────────────────────────
 function renderFeed(dados) {
-  const recentes = dados.slice(0, 100);
-  if (!recentes.length) { document.getElementById('feed-eventos').innerHTML = '<div class="empty">Nenhum evento ainda.</div>'; return; }
-  document.getElementById('feed-eventos').innerHTML = recentes.map(e => {
+  if (!dados.length) { document.getElementById('feed-eventos').innerHTML = '<div class="empty">Nenhum evento ainda.</div>'; return; }
+  document.getElementById('feed-eventos').innerHTML = dados.map(e => {
     const badges = {
       clique_parque:        '<span class="feed-badge badge-parque">Parque</span>',
       clique_restaurante:   '<span class="feed-badge badge-restaurante">Restaurante</span>',
       clique_atracao:       '<span class="feed-badge badge-atracao">Atração</span>',
+      clique_desconto:      '<span class="feed-badge badge-parque">Desconto</span>',
       login_send_success:   '<span class="feed-badge badge-login-ok">Login: código enviado</span>',
       login_send_failed:    '<span class="feed-badge badge-login-fail">Login: envio falhou</span>',
       login_verify_success: '<span class="feed-badge badge-login-ok">Login: ok</span>',
       login_verify_failed:  '<span class="feed-badge badge-login-fail">Login: código rejeitado</span>',
       post_publish_success: '<span class="feed-badge badge-post-ok">Post publicado</span>',
       post_publish_failed:  '<span class="feed-badge badge-post-fail">Post: falhou</span>',
+      app_open:             '<span class="feed-badge badge-open">App aberto</span>',
     };
     const badge = badges[e.evento] || `<span class="feed-badge badge-outro">${e.evento||'?'}</span>`;
-    // Detalhe contextual: clique tem 'nome'; login tem 'motivo'; post tem 'tag'
     let detalhe = e.payload?.nome || e.payload?.motivo || e.payload?.tag || '—';
     if (e.evento === 'login_verify_success' && e.payload?.tempo_desde_solicitacao_seg != null) {
       detalhe = e.payload.tempo_desde_solicitacao_seg + 's após solicitar';
+    }
+    if (e.evento === 'app_open' && e.payload?.utm?.source) {
+      detalhe = 'via ' + e.payload.utm.source;
     }
     const hora = new Date(e.criado_em).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     return `
