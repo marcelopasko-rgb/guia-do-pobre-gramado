@@ -779,7 +779,12 @@ function renderTabelaUsuarios(dados, users) {
   }
   const cliquesUser = {};
   dados.filter(e => e.user_id).forEach(e => { cliquesUser[e.user_id] = (cliquesUser[e.user_id]||0)+1; });
-  const sorted = [...users].sort((a,b) => new Date(b.created_at) - new Date(a.created_at));
+  
+  // Ordena por mais recente e LIMITA A 50
+  const sorted = [...users]
+    .sort((a,b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 50);
+  
   document.getElementById('tabela-usuarios').innerHTML = sorted.map((u, i) => {
     const cliques = cliquesUser[u.id] || 0;
     const criado  = new Date(u.created_at).toLocaleDateString('pt-BR');
@@ -795,7 +800,12 @@ function renderTabelaUsuarios(dados, users) {
         <td style="color:${cliques > 0 ? 'var(--yellow)' : 'var(--muted)'};font-weight:${cliques>0?'700':'400'};">${cliques}</td>
         <td><span class="user-badge ${ativo ? 'badge-ativo' : 'badge-inativo'}">${ativo ? 'Ativo' : 'Inativo'}</span></td>
       </tr>`;
-  }).join('');
+  }).join('') + `
+    <tr>
+      <td colspan="6" style="text-align:center;color:var(--muted);font-size:10px;padding:14px;font-style:italic;">
+        Mostrando os 50 cadastros mais recentes de um total de ${users.length} usuários
+      </td>
+    </tr>`;
 }
 
 // ── FEED ─────────────────────────────────────────────────────────
