@@ -544,20 +544,34 @@ function renderConversao(payload) {
   const k = payload.kpis || {};
   const opens = k.app_opens || 0;
   const comDesconto = k.users_com_desconto || 0;
-  const conv = k.taxa_conversao;
+  const periodo = k.periodo;
 
   document.getElementById('stat-opens').textContent = opens || '0';
   document.getElementById('stat-com-desconto').textContent = comDesconto || '0';
 
+  // CASO 1: sem aberturas registradas ainda
   if (opens === 0) {
     document.getElementById('stat-conv').textContent = '—';
     document.getElementById('stat-conv-sub').textContent = 'Adicione tracking de app_open pra ativar';
     document.getElementById('stat-opens-sub').textContent = 'aguardando tracking';
-  } else {
-    document.getElementById('stat-conv').textContent = (conv != null ? conv : 0) + '%';
-    document.getElementById('stat-conv-sub').textContent = comDesconto + ' de ' + opens + ' aberturas';
-    document.getElementById('stat-opens-sub').textContent = 'sessões totais';
+    return;
   }
+
+  // CASO 2: dados desalinhados (cliques antigos > aberturas novas)
+  // Acontece quando você instalou o app_open DEPOIS de já ter cliques na base.
+  // Nesse caso, qualquer cálculo é furado.
+  if (comDesconto > opens) {
+    document.getElementById('stat-conv').textContent = '⏳';
+    document.getElementById('stat-conv-sub').textContent = 'Acumulando dados... aguarde 1-2 dias';
+    document.getElementById('stat-opens-sub').textContent = 'tracking recém-instalado';
+    return;
+  }
+
+  // CASO 3: cálculo normal — agora seguro
+  const conv = Math.round((comDesconto / opens) * 1000) / 10; // 1 casa decimal
+  document.getElementById('stat-conv').textContent = conv + '%';
+  document.getElementById('stat-conv-sub').textContent = comDesconto + ' de ' + opens + ' aberturas';
+  document.getElementById('stat-opens-sub').textContent = 'sessões totais';
 }
 
 // ── GRÁFICO ────────────────────────────────────────────────────────
