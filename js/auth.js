@@ -671,3 +671,62 @@ function pwaSheetDismiss() {
 function pwaTrigger() {
   setTimeout(pwaShowSheet, 800);
 }
+/* ════════════════════════════════════════════════════════════════════
+   📝 SNIPPET: TRACKING DE app_open
+   
+   ⚠️ ISSO É ESSENCIAL pras métricas "Taxa de Conversão" e "Retenção"
+   funcionarem. Sem isso, esses números ficarão zerados ou nulos.
+   
+   ⚠️ COMO INSTALAR:
+   1. Abra js/auth.js
+   2. LOCALIZE a função "track" (linha 510, mais ou menos)
+   3. LOGO DEPOIS dela (depois do "}" que fecha track), COLE este código
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ═══ APP OPEN — uma vez por sessão de navegação ═══ */
+// Registra um evento "app_open" no máximo 1x por hora, por sessão.
+// Isso permite calcular taxa de conversão e retenção sem inflar a tabela.
+(function rastrearAppOpen() {
+  const CHAVE = 'gramado_last_app_open';
+  const COOLDOWN_MS = 60 * 60 * 1000; // 1 hora
+
+  function disparar() {
+    try {
+      const ultimo = parseInt(localStorage.getItem(CHAVE) || '0', 10);
+      const agora = Date.now();
+      if (agora - ultimo < COOLDOWN_MS) return; // já registrou recentemente
+
+      // Pega UTMs da URL pra rastrear origem (instagram, ads, etc)
+      const params = new URLSearchParams(window.location.search);
+      const utm = {
+        source: params.get('utm_source') || null,
+        medium: params.get('utm_medium') || null,
+        campaign: params.get('utm_campaign') || null
+      };
+
+      // Detecta se é PWA instalado vs navegador
+      const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                    window.navigator.standalone === true;
+
+      if (typeof track === 'function') {
+        track('app_open', {
+          utm,
+          pwa: isPWA,
+          referrer: document.referrer || null
+        });
+      }
+
+      localStorage.setItem(CHAVE, agora.toString());
+    } catch(e) { /* silent */ }
+  }
+
+  // Dispara quando a página carrega E quando volta do background
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', disparar);
+  } else {
+    disparar();
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') disparar();
+  });
+})();
