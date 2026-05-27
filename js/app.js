@@ -2125,6 +2125,431 @@ document.addEventListener('click', function(e) {
   if (trigger) setTimeout(applyRoteiroChecked, 50);
 });
 
+/* ════════════════════════════════════════════════════════════════════
+   📝 EDITOR DE ROTEIRO — Cole este bloco INTEIRO no final do seu app.js
+   (depois da seção "ROTEIRO PROGRESS", antes da seção "OFERTAS RELÂMPAGO")
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ═══ EDITOR DE ROTEIRO ═══ */
+const ROTEIRO_CUSTOM_KEY = 'gramado_roteiro_custom_v1';
+const ROTEIRO_EDIT_MODE_KEY = 'gramado_roteiro_edit_mode';
+let _roteiroBase = null; // guarda o roteiro original carregado (pra poder resetar)
+
+// ── Salvar / carregar roteiro customizado ───────────────────────────
+function getRoteiroCustom() {
+  try {
+    const raw = localStorage.getItem(ROTEIRO_CUSTOM_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
+
+function saveRoteiroCustom(data) {
+  try { localStorage.setItem(ROTEIRO_CUSTOM_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+function clearRoteiroCustom() {
+  try { localStorage.removeItem(ROTEIRO_CUSTOM_KEY); } catch(e) {}
+}
+
+// ── Helper: clona profundamente um roteiro ──────────────────────────
+function cloneRoteiro(data) {
+  return JSON.parse(JSON.stringify(data));
+}
+
+// ── Patch no buildRoteiro: se houver customização, usa ela ──────────
+// Salvamos a referência original e sobrescrevemos a função:
+const _buildRoteiroOriginal = buildRoteiro;
+buildRoteiro = function(dados) {
+  // Guarda o roteiro base (sem customização) pra poder resetar depois
+  if (dados) _roteiroBase = cloneRoteiro(dados);
+  else if (!_roteiroBase) _roteiroBase = cloneRoteiro(roteiroData);
+
+  // Se a pessoa já editou, usa a versão customizada
+  const custom = getRoteiroCustom();
+  const dataParaUsar = custom || dados || roteiroData;
+
+  _buildRoteiroOriginal(dataParaUsar);
+
+  // Depois de renderizar, aplica o modo edição (se estiver ativo)
+  applyEditMode();
+
+  // E mostra o botão "Editar roteiro" no topo
+  injectEditButton();
+};
+
+// ── Botão "Editar roteiro" no topo do overlay ───────────────────────
+function injectEditButton() {
+  const wrap = document.getElementById('roteiro-progress-wrap');
+  if (!wrap) return;
+  if (document.getElementById('roteiro-edit-toolbar')) return; // já existe
+
+  const isEditing = isEditMode();
+  const isCustom = !!getRoteiroCustom();
+
+  const toolbar = document.createElement('div');
+  toolbar.id = 'roteiro-edit-toolbar';
+  toolbar.innerHTML = `
+    <button id="btn-edit-roteiro" class="btn-edit-roteiro ${isEditing ? 'active' : ''}" onclick="toggleEditMode()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+      <span>${isEditing ? 'Concluir edição' : 'Editar roteiro'}</span>
+    </button>
+    ${isCustom ? `
+      <button class="btn-reset-roteiro" onclick="resetRoteiro()" title="Voltar ao roteiro original">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;">
+          <polyline points="1 4 1 10 7 10"/>
+          <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+        </svg>
+        <span>Resetar</span>
+      </button>
+    ` : ''}
+  `;
+  wrap.parentNode.insertBefore(toolbar, wrap.nextSibling);
+}
+
+// ── Toggle modo edição ──────────────────────────────────────────────
+function isEditMode() {
+  return localStorage.getItem(ROTEIRO_EDIT_MODE_KEY) === '1';
+}
+
+function toggleEditMode() {
+  const novo = !isEditMode();
+  localStorage.setItem(ROTEIRO_EDIT_MODE_KEY, novo ? '1' : '0');
+  // Re-renderiza com o botão atualizado
+  const toolbar = document.getElementById('roteiro-edit-toolbar');
+  if (toolbar) toolbar.remove();
+  buildRoteiro(_roteiroBase || roteiroData);
+  showToast(novo ? 'Modo edição ativado ✏️' : 'Edição concluída ✓');
+}
+
+function applyEditMode() {
+  const body = document.getElementById('roteiro-body') || document.getElementById('overlay-roteiro');
+  if (!body) return;
+  body.classList.toggle('edit-mode', isEditMode());
+  if (isEditMode()) renderEditControls();
+}
+
+// ── Renderiza os controles de edição em cada item ───────────────────
+function renderEditControls() {
+  const dias = document.querySelectorAll('#roteiro-content .day-block');
+  dias.forEach((diaEl, diaIdx) => {
+    // ── Controles do dia (no header) ──
+    const header = diaEl.querySelector('.day-header');
+    if (header && !header.querySelector('.day-edit-controls')) {
+      const ctrls = document.createElement('div');
+      ctrls.className = 'day-edit-controls';
+      ctrls.innerHTML = `
+        <button class="day-edit-btn" onclick="event.stopPropagation(); editarDia(${diaIdx})" title="Editar título do dia">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="day-edit-btn danger" onclick="event.stopPropagation(); excluirDia(${diaIdx})" title="Excluir dia inteiro">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      `;
+      header.appendChild(ctrls);
+    }
+
+    // ── Controles em cada atração ──
+    const atracoes = diaEl.querySelectorAll('.attraction-item');
+    atracoes.forEach((atrEl, atrIdx) => {
+      if (atrEl.querySelector('.attr-edit-controls')) return;
+      const ctrls = document.createElement('div');
+      ctrls.className = 'attr-edit-controls';
+      ctrls.innerHTML = `
+        <button class="attr-edit-btn" onclick="moverAtracao(${diaIdx}, ${atrIdx}, -1)" title="Mover pra cima" ${atrIdx === 0 ? 'disabled' : ''}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>
+        </button>
+        <button class="attr-edit-btn" onclick="moverAtracao(${diaIdx}, ${atrIdx}, 1)" title="Mover pra baixo" ${atrIdx === atracoes.length - 1 ? 'disabled' : ''}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <button class="attr-edit-btn" onclick="editarAtracao(${diaIdx}, ${atrIdx})" title="Editar atração">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+        <button class="attr-edit-btn danger" onclick="excluirAtracao(${diaIdx}, ${atrIdx})" title="Excluir atração">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+        </button>
+      `;
+      atrEl.appendChild(ctrls);
+    });
+
+    // ── Botão "+ Adicionar atração" no fim do dia ──
+    const dayContent = diaEl.querySelector('.day-content');
+    if (dayContent && !dayContent.querySelector('.btn-add-atracao')) {
+      const btn = document.createElement('button');
+      btn.className = 'btn-add-atracao';
+      btn.onclick = () => adicionarAtracao(diaIdx);
+      btn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Adicionar atração
+      `;
+      // Insere antes da dica do dia (se houver)
+      const tip = dayContent.querySelector('.day-tip');
+      if (tip) dayContent.insertBefore(btn, tip);
+      else dayContent.appendChild(btn);
+    }
+  });
+
+  // ── Botão "+ Adicionar dia" no fim do roteiro ──
+  const content = document.getElementById('roteiro-content');
+  if (content && !content.querySelector('.btn-add-dia')) {
+    const btn = document.createElement('button');
+    btn.className = 'btn-add-dia';
+    btn.onclick = adicionarDia;
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Adicionar novo dia
+    `;
+    content.appendChild(btn);
+  }
+}
+
+// ── Pega o roteiro atual (custom OU base) pra editar ────────────────
+function getRoteiroEditavel() {
+  const custom = getRoteiroCustom();
+  if (custom) return cloneRoteiro(custom);
+  return cloneRoteiro(_roteiroBase || roteiroData);
+}
+
+// ── Salva e re-renderiza ────────────────────────────────────────────
+function salvarERenderizar(novoRoteiro) {
+  saveRoteiroCustom(novoRoteiro);
+  // Remove toolbar pra ela ser re-criada com botão "Resetar"
+  const toolbar = document.getElementById('roteiro-edit-toolbar');
+  if (toolbar) toolbar.remove();
+  buildRoteiro(_roteiroBase || roteiroData);
+}
+
+// ═══ AÇÕES ═══════════════════════════════════════════════════════════
+
+function excluirAtracao(diaIdx, atrIdx) {
+  const r = getRoteiroEditavel();
+  const nome = r[diaIdx].atr[atrIdx].n;
+  if (!confirm(`Excluir "${nome}"?`)) return;
+  r[diaIdx].atr.splice(atrIdx, 1);
+  salvarERenderizar(r);
+  showToast('Atração excluída');
+}
+
+function moverAtracao(diaIdx, atrIdx, direcao) {
+  const r = getRoteiroEditavel();
+  const atrs = r[diaIdx].atr;
+  const novoIdx = atrIdx + direcao;
+  if (novoIdx < 0 || novoIdx >= atrs.length) return;
+  [atrs[atrIdx], atrs[novoIdx]] = [atrs[novoIdx], atrs[atrIdx]];
+  salvarERenderizar(r);
+}
+
+function editarAtracao(diaIdx, atrIdx) {
+  const r = getRoteiroEditavel();
+  const a = r[diaIdx].atr[atrIdx];
+  abrirModalAtracao({
+    titulo: 'Editar atração',
+    nome: a.n,
+    desc: a.d,
+    valor: a.v,
+    free: a.free,
+    onSalvar: (dados) => {
+      r[diaIdx].atr[atrIdx] = {
+        n: dados.nome,
+        d: dados.desc,
+        v: dados.valor,
+        free: dados.free
+      };
+      salvarERenderizar(r);
+      showToast('Atração atualizada ✓');
+    }
+  });
+}
+
+function adicionarAtracao(diaIdx) {
+  const r = getRoteiroEditavel();
+  abrirModalAtracao({
+    titulo: 'Nova atração',
+    nome: '',
+    desc: '',
+    valor: 'Grátis',
+    free: true,
+    onSalvar: (dados) => {
+      if (!r[diaIdx].atr) r[diaIdx].atr = [];
+      r[diaIdx].atr.push({
+        n: dados.nome,
+        d: dados.desc,
+        v: dados.valor,
+        free: dados.free
+      });
+      salvarERenderizar(r);
+      showToast('Atração adicionada ✓');
+    }
+  });
+}
+
+function editarDia(diaIdx) {
+  const r = getRoteiroEditavel();
+  const d = r[diaIdx];
+  abrirModalDia({
+    titulo: d.titulo,
+    sub: d.sub,
+    tip: d.tip,
+    onSalvar: (dados) => {
+      r[diaIdx].titulo = dados.titulo;
+      r[diaIdx].sub = dados.sub;
+      r[diaIdx].tip = dados.tip;
+      salvarERenderizar(r);
+      showToast('Dia atualizado ✓');
+    }
+  });
+}
+
+function excluirDia(diaIdx) {
+  const r = getRoteiroEditavel();
+  if (r.length === 1) {
+    showToast('Você precisa ter ao menos 1 dia no roteiro');
+    return;
+  }
+  if (!confirm(`Excluir o Dia ${r[diaIdx].dia} inteiro?`)) return;
+  r.splice(diaIdx, 1);
+  // Renumera os dias
+  r.forEach((d, i) => d.dia = i + 1);
+  salvarERenderizar(r);
+  showToast('Dia excluído');
+}
+
+function adicionarDia() {
+  const r = getRoteiroEditavel();
+  abrirModalDia({
+    titulo: '',
+    sub: '',
+    tip: '',
+    onSalvar: (dados) => {
+      r.push({
+        dia: r.length + 1,
+        titulo: dados.titulo || `Dia ${r.length + 1}`,
+        sub: dados.sub || '',
+        atr: [],
+        tip: dados.tip || ''
+      });
+      salvarERenderizar(r);
+      showToast('Dia adicionado ✓');
+    }
+  });
+}
+
+function resetRoteiro() {
+  if (!confirm('Resetar o roteiro? Todas as suas edições serão perdidas.')) return;
+  clearRoteiroCustom();
+  // Limpa também os itens marcados pra não ficarem com IDs órfãos
+  saveRoteiroChecked([]);
+  const toolbar = document.getElementById('roteiro-edit-toolbar');
+  if (toolbar) toolbar.remove();
+  buildRoteiro(_roteiroBase || roteiroData);
+  showToast('Roteiro resetado ↻');
+}
+
+// ═══ MODAIS ══════════════════════════════════════════════════════════
+
+function abrirModalAtracao({ titulo, nome, desc, valor, free, onSalvar }) {
+  const modal = document.createElement('div');
+  modal.className = 'editor-modal-overlay';
+  modal.innerHTML = `
+    <div class="editor-modal">
+      <div class="editor-modal-header">
+        <h3>${titulo}</h3>
+        <button class="editor-modal-close" onclick="fecharModalEditor(this)">×</button>
+      </div>
+      <div class="editor-modal-body">
+        <label>Nome da atração</label>
+        <input type="text" id="ed-nome" value="${(nome || '').replace(/"/g,'&quot;')}" placeholder="Ex: Lago Negro">
+
+        <label>Horário / descrição</label>
+        <textarea id="ed-desc" placeholder="Ex: 09:00 — Passeio de pedalinho">${desc || ''}</textarea>
+
+        <label>Valor</label>
+        <input type="text" id="ed-valor" value="${(valor || '').replace(/"/g,'&quot;')}" placeholder="Ex: R$ 50 ou Grátis">
+
+        <label class="editor-checkbox">
+          <input type="checkbox" id="ed-free" ${free ? 'checked' : ''}>
+          <span>Atração gratuita</span>
+        </label>
+      </div>
+      <div class="editor-modal-footer">
+        <button class="editor-btn-cancelar" onclick="fecharModalEditor(this)">Cancelar</button>
+        <button class="editor-btn-salvar" id="ed-salvar">Salvar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  // Auto-detecta se é grátis ao digitar valor
+  const valorInput = modal.querySelector('#ed-valor');
+  const freeCheck = modal.querySelector('#ed-free');
+  valorInput.addEventListener('input', () => {
+    const v = valorInput.value.toLowerCase().trim();
+    if (v === 'grátis' || v === 'gratis' || v === 'free' || v === '') {
+      freeCheck.checked = true;
+    }
+  });
+
+  modal.querySelector('#ed-salvar').onclick = () => {
+    const dados = {
+      nome: modal.querySelector('#ed-nome').value.trim(),
+      desc: modal.querySelector('#ed-desc').value.trim(),
+      valor: modal.querySelector('#ed-valor').value.trim() || 'Grátis',
+      free: modal.querySelector('#ed-free').checked
+    };
+    if (!dados.nome) {
+      showToast('Coloque um nome pra atração');
+      return;
+    }
+    modal.remove();
+    onSalvar(dados);
+  };
+}
+
+function abrirModalDia({ titulo, sub, tip, onSalvar }) {
+  const modal = document.createElement('div');
+  modal.className = 'editor-modal-overlay';
+  modal.innerHTML = `
+    <div class="editor-modal">
+      <div class="editor-modal-header">
+        <h3>${titulo === '' ? 'Novo dia' : 'Editar dia'}</h3>
+        <button class="editor-modal-close" onclick="fecharModalEditor(this)">×</button>
+      </div>
+      <div class="editor-modal-body">
+        <label>Título do dia</label>
+        <input type="text" id="ed-titulo" value="${(titulo || '').replace(/"/g,'&quot;')}" placeholder="Ex: Centro de Gramado a Pé">
+
+        <label>Subtítulo</label>
+        <input type="text" id="ed-sub" value="${(sub || '').replace(/"/g,'&quot;')}" placeholder="Ex: Caminhada pelos pontos icônicos">
+
+        <label>Dica do pobre (opcional)</label>
+        <textarea id="ed-tip" placeholder="Ex: Use calçado confortável...">${tip || ''}</textarea>
+      </div>
+      <div class="editor-modal-footer">
+        <button class="editor-btn-cancelar" onclick="fecharModalEditor(this)">Cancelar</button>
+        <button class="editor-btn-salvar" id="ed-salvar">Salvar</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  modal.querySelector('#ed-salvar').onclick = () => {
+    const dados = {
+      titulo: modal.querySelector('#ed-titulo').value.trim(),
+      sub: modal.querySelector('#ed-sub').value.trim(),
+      tip: modal.querySelector('#ed-tip').value.trim()
+    };
+    modal.remove();
+    onSalvar(dados);
+  };
+}
+
+function fecharModalEditor(btn) {
+  const modal = btn.closest('.editor-modal-overlay');
+  if (modal) modal.remove();
+}
+
 /* ═══ OFERTAS RELÂMPAGO ═══ */
 const ofertasRelampago = [
   { nome:'Bondinhos Aéreos', tag:'A MELHOR VISTA DA CASCATA!', tempo:'2-3 horas', cupom:'COPA26', desc:'-5%', de:'R$ 150,00', por:'R$ 60,00', emoji:'🚡' },
