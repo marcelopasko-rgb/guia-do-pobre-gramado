@@ -2449,6 +2449,125 @@ function resetRoteiro() {
 
 // ═══ MODAIS ══════════════════════════════════════════════════════════
 
+/* ════════════════════════════════════════════════════════════════════
+   📝 PATCH AUTOCOMPLETE — Adiciona sugestões automáticas no editor
+   
+   ⚠️ COMO INSTALAR:
+   1. No arquivo "1-cole-no-app-js.js" que você já colou no app.js,
+      LOCALIZE a função "abrirModalAtracao" (linha ~245)
+   2. APAGUE a função inteira (de "function abrirModalAtracao" até o "}" final)
+   3. COLE este arquivo INTEIRO no lugar
+   
+   Pronto! O modal de adicionar/editar atração agora terá autocomplete.
+   ════════════════════════════════════════════════════════════════════ */
+
+// ── Catálogo unificado de sugestões ─────────────────────────────────
+// Junta parques + restaurantes + restaurantesSecretos + todasAtracoes
+// num formato único pro autocomplete.
+function buildCatalogoSugestoes() {
+  const cat = [];
+
+  // Parques (formato {e, n, d, por, ...})
+  if (typeof parques !== 'undefined') {
+    parques.forEach(p => {
+      cat.push({
+        nome: p.n,
+        emoji: p.e || '🎢',
+        desc: p.d || '',
+        valor: p.por || '',
+        free: false,
+        fonte: 'Parque'
+      });
+    });
+  }
+
+  // Restaurantes (formato {e, n, d, por, ...})
+  if (typeof restaurantes !== 'undefined') {
+    restaurantes.forEach(r => {
+      cat.push({
+        nome: r.n,
+        emoji: r.e || '🍽️',
+        desc: r.d || '',
+        valor: r.por || '',
+        free: false,
+        fonte: 'Restaurante'
+      });
+    });
+  }
+
+  // Restaurantes secretos
+  if (typeof restaurantesSecretos !== 'undefined') {
+    restaurantesSecretos.forEach(r => {
+      cat.push({
+        nome: r.n || r.nome,
+        emoji: r.e || '🍴',
+        desc: r.d || r.desc || '',
+        valor: r.por || r.preco || '',
+        free: false,
+        fonte: 'Restaurante secreto'
+      });
+    });
+  }
+
+  // todasAtracoes (formato {nome, desc, preco, pago})
+  if (typeof todasAtracoes !== 'undefined') {
+    todasAtracoes.forEach(a => {
+      // Pega só a primeira linha do preço (que costuma ter várias linhas)
+      const precoLimpo = (a.preco || '').split('\n')[0].trim();
+      cat.push({
+        nome: a.nome,
+        emoji: a.pago ? '🎟️' : '📍',
+        desc: a.desc || '',
+        valor: precoLimpo || 'Grátis',
+        free: !a.pago,
+        fonte: a.pago ? 'Atração' : 'Atração grátis',
+        horario: a.horario || ''
+      });
+    });
+  }
+
+  // Remove duplicatas pelo nome normalizado (caso o mesmo lugar apareça
+  // em todasAtracoes e em parques, mantém a primeira ocorrência)
+  const vistos = new Set();
+  return cat.filter(item => {
+    const chave = (item.nome || '').toLowerCase().trim();
+    if (vistos.has(chave)) return false;
+    vistos.add(chave);
+    return true;
+  });
+}
+
+// Cache do catálogo (só monta uma vez)
+let _catalogoCache = null;
+function getCatalogo() {
+  if (!_catalogoCache) _catalogoCache = buildCatalogoSugestoes();
+  return _catalogoCache;
+}
+
+// ── Busca fuzzy simples ─────────────────────────────────────────────
+function buscarSugestoes(termo) {
+  if (!termo || termo.length < 1) return [];
+  const t = termo.toLowerCase().trim();
+  const catalogo = getCatalogo();
+  
+  // Primeiro: matches que começam com o termo (prioridade)
+  // Depois: matches que contêm o termo em qualquer lugar do nome
+  const exatos = [];
+  const parciais = [];
+  
+  catalogo.forEach(item => {
+    const nome = item.nome.toLowerCase();
+    if (nome.startsWith(t)) {
+      exatos.push(item);
+    } else if (nome.includes(t)) {
+      parciais.push(item);
+    }
+  });
+  
+  return [...exatos, ...parciais].slice(0, 6); // máx 6 sugestões
+}
+
+// ── Modal de atração COM autocomplete ───────────────────────────────
 function abrirModalAtracao({ titulo, nome, desc, valor, free, onSalvar }) {
   const modal = document.createElement('div');
   modal.className = 'editor-modal-overlay';
@@ -2460,7 +2579,10 @@ function abrirModalAtracao({ titulo, nome, desc, valor, free, onSalvar }) {
       </div>
       <div class="editor-modal-body">
         <label>Nome da atração</label>
-        <input type="text" id="ed-nome" value="${(nome || '').replace(/"/g,'&quot;')}" placeholder="Ex: Lago Negro">
+        <div class="autocomplete-wrap">
+          <input type="text" id="ed-nome" value="${(nome || '').replace(/"/g,'&quot;')}" placeholder="Digite pra ver sugestões..." autocomplete="off">
+          <div class="autocomplete-list" id="ed-sugestoes"></div>
+        </div>
 
         <label>Horário / descrição</label>
         <textarea id="ed-desc" placeholder="Ex: 09:00 — Passeio de pedalinho">${desc || ''}</textarea>
@@ -2481,9 +2603,68 @@ function abrirModalAtracao({ titulo, nome, desc, valor, free, onSalvar }) {
   `;
   document.body.appendChild(modal);
 
-  // Auto-detecta se é grátis ao digitar valor
+  const nomeInput = modal.querySelector('#ed-nome');
+  const descInput = modal.querySelector('#ed-desc');
   const valorInput = modal.querySelector('#ed-valor');
   const freeCheck = modal.querySelector('#ed-free');
+  const sugestoesEl = modal.querySelector('#ed-sugestoes');
+
+  // ── Renderiza sugestões ──
+  function renderSugestoes() {
+    const termo = nomeInput.value;
+    const sugestoes = buscarSugestoes(termo);
+
+    if (sugestoes.length === 0) {
+      sugestoesEl.style.display = 'none';
+      sugestoesEl.innerHTML = '';
+      return;
+    }
+
+    sugestoesEl.style.display = 'block';
+    sugestoesEl.innerHTML = sugestoes.map((s, i) => `
+      <div class="autocomplete-item" data-idx="${i}">
+        <span class="ac-emoji">${s.emoji}</span>
+        <div class="ac-info">
+          <div class="ac-nome">${s.nome}</div>
+          <div class="ac-meta">${s.fonte}${s.valor ? ' · ' + s.valor : ''}</div>
+        </div>
+      </div>
+    `).join('');
+
+    // Click handler em cada sugestão
+    sugestoesEl.querySelectorAll('.autocomplete-item').forEach((el, i) => {
+      el.onclick = () => preencherCom(sugestoes[i]);
+    });
+  }
+
+  // ── Preenche os campos quando uma sugestão é clicada ──
+  function preencherCom(item) {
+    nomeInput.value = item.nome;
+    
+    // Pra descrição, monta um texto natural com horário se houver
+    let descTexto = '';
+    if (item.horario) {
+      // Tenta extrair o primeiro horário ou usar a info
+      const matchHora = item.horario.match(/\d{1,2}h(?:\d{2})?/);
+      if (matchHora) {
+        descTexto = matchHora[0] + ' — ' + item.desc;
+      } else {
+        descTexto = item.desc;
+      }
+    } else {
+      descTexto = item.desc;
+    }
+    descInput.value = descTexto;
+    
+    valorInput.value = item.valor || 'Grátis';
+    freeCheck.checked = !!item.free;
+    
+    sugestoesEl.style.display = 'none';
+    sugestoesEl.innerHTML = '';
+    showToast('Dados preenchidos ✨');
+  }
+
+  // ── Auto-detecta "grátis" quando o usuário digita o valor ──
   valorInput.addEventListener('input', () => {
     const v = valorInput.value.toLowerCase().trim();
     if (v === 'grátis' || v === 'gratis' || v === 'free' || v === '') {
@@ -2491,12 +2672,25 @@ function abrirModalAtracao({ titulo, nome, desc, valor, free, onSalvar }) {
     }
   });
 
+  // ── Listener no input do nome ──
+  nomeInput.addEventListener('input', renderSugestoes);
+  nomeInput.addEventListener('focus', renderSugestoes);
+
+  // Fecha sugestões ao clicar fora do input
+  document.addEventListener('click', function fechaSugestoes(e) {
+    if (!modal.contains(e.target)) return;
+    if (!nomeInput.contains(e.target) && !sugestoesEl.contains(e.target)) {
+      sugestoesEl.style.display = 'none';
+    }
+  });
+
+  // ── Salvar ──
   modal.querySelector('#ed-salvar').onclick = () => {
     const dados = {
-      nome: modal.querySelector('#ed-nome').value.trim(),
-      desc: modal.querySelector('#ed-desc').value.trim(),
-      valor: modal.querySelector('#ed-valor').value.trim() || 'Grátis',
-      free: modal.querySelector('#ed-free').checked
+      nome: nomeInput.value.trim(),
+      desc: descInput.value.trim(),
+      valor: valorInput.value.trim() || 'Grátis',
+      free: freeCheck.checked
     };
     if (!dados.nome) {
       showToast('Coloque um nome pra atração');
@@ -2505,8 +2699,12 @@ function abrirModalAtracao({ titulo, nome, desc, valor, free, onSalvar }) {
     modal.remove();
     onSalvar(dados);
   };
-}
 
+  // Renderiza sugestões iniciais se já tem texto (caso esteja editando)
+  if (nomeInput.value) setTimeout(renderSugestoes, 100);
+  // Foca no input
+  setTimeout(() => nomeInput.focus(), 100);
+}
 function abrirModalDia({ titulo, sub, tip, onSalvar }) {
   const modal = document.createElement('div');
   modal.className = 'editor-modal-overlay';
