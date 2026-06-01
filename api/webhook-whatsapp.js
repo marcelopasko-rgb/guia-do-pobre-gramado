@@ -106,34 +106,161 @@ module.exports = async function handler(req, res) {
 const LINK_APP = "https://guia-do-pobre-gramado.vercel.app/";
 const LINK_GRUPO = "https://chat.whatsapp.com/FWQr1VHGXMb52H69SXWzZq";
 
-// 3 variações da mensagem de boas-vindas
+// 7 variações da mensagem de boas-vindas
 const variacoesBoasVindas = [
   // Variação A — saudação, anúncio, link, instruções
   (nome) =>
-    `Olá, ${nome}! 😊 Aqui é o Marcelo, do Guia do Pobre em Gramado.\n\nSua compra foi aprovada! 🎉\n\nAcesse seu app pelo link:\n${LINK_APP}\n\nPara fazer login, use o mesmo e-mail da compra. Se não conseguir clicar no link acima, salve meu número nos contatos e tente novamente.\n\nBoa viagem e aproveite os cupons para economizar! 🥰`,
+    `Olá, ${nome}! 😊 Aqui é o Marcelo, do Guia do Pobre em Gramado.
+
+Sua compra foi aprovada! 🎉
+
+Acesse seu app pelo link:
+${LINK_APP}
+
+Para fazer login, use o mesmo e-mail da compra. Se não conseguir clicar no link acima, salve meu número nos contatos e tente novamente.
+
+Boa viagem e aproveite os cupons para economizar! 🥰`,
 
   // Variação B — confirmação primeiro, login antes do link, fechamento curto
   (nome) =>
-    `${nome}, deu tudo certo com seu pagamento! ✅\n\nSeja muito bem-vindo(a) ao Guia do Pobre em Gramado — quem fala aqui é o Marcelo. Seu acesso já está liberado: basta entrar com o mesmo e-mail que você usou na compra.\n\n👉 ${LINK_APP}\n\nDica: se o link não abrir de primeira, salva meu contato e tenta de novo.\n\nBora economizar em Gramado! 💚`,
+    `${nome}, deu tudo certo com seu pagamento! ✅
+
+Seja muito bem-vindo(a) ao Guia do Pobre em Gramado — quem fala aqui é o Marcelo. Seu acesso já está liberado: basta entrar com o mesmo e-mail que você usou na compra.
+
+👉 ${LINK_APP}
+
+Dica: se o link não abrir de primeira, salva meu contato e tenta de novo.
+
+Bora economizar em Gramado! 💚`,
 
   // Variação C — conversacional, frases curtas, link no meio
   (nome) =>
-    `Oi, ${nome}! Aqui é o Marcelo do Guia do Pobre em Gramado. 🙌\n\nTô passando pra avisar que sua compra foi confirmada e seu app já está no ar:\n${LINK_APP}\n\nPra acessar, é só entrar com o e-mail da compra. Caso o link não abra, salva meu número e clica de novo que funciona certinho.\n\nAproveita bastante e boa viagem! 😄`,
+    `Oi, ${nome}! Aqui é o Marcelo do Guia do Pobre em Gramado. 🙌
+
+Tô passando pra avisar que sua compra foi confirmada e seu app já está no ar:
+${LINK_APP}
+
+Pra acessar, é só entrar com o e-mail da compra. Caso o link não abra, salva meu número e clica de novo que funciona certinho.
+
+Aproveita bastante e boa viagem! 😄`,
+
+  // Variação D — tom mais formal, poucos emojis
+  (nome) =>
+    `Olá, ${nome}. Sou o Marcelo, responsável pelo Guia do Pobre em Gramado.
+
+Confirmo que seu pagamento foi aprovado e seu acesso já está disponível. Para entrar, utilize o mesmo e-mail informado na compra:
+
+${LINK_APP}
+
+Caso o link não abra ao toque, salve este contato e tente novamente. Qualquer dúvida, estou à disposição.
+
+Desejo uma excelente viagem!`,
+
+  // Variação E — entusiasmada, link logo no começo
+  (nome) =>
+    `${nome}, seja bem-vindo(a) ao Guia do Pobre em Gramado! 🎉
+
+Seu acesso já está liberado, é só clicar aqui:
+${LINK_APP}
+
+Entra com o mesmo e-mail da compra que cai direto. Se o link não abrir, salva meu contato e tenta de novo.
+
+Qualquer coisa me chama por aqui. Aproveita Gramado gastando pouco! 😍`,
+
+  // Variação F — pessoal e calorosa
+  (nome) =>
+    `${nome}, que alegria ter você aqui! 🥰 É o Marcelo falando, do Guia do Pobre em Gramado.
+
+Sua compra caiu certinho e já liberei tudo pra você. Pra abrir, use o e-mail da compra:
+${LINK_APP}
+
+Se por acaso o link travar, é só salvar meu número e clicar de novo.
+
+Vai por mim: dá pra curtir Gramado MUITO sem estourar o orçamento. Boa viagem! 😊`,
+
+  // Variação G — direta e enxuta
+  (nome) =>
+    `Oi ${nome}, é o Marcelo do Guia do Pobre em Gramado.
+
+Compra aprovada! Seu app está aqui:
+${LINK_APP}
+
+Login com o e-mail da compra. Se o link não abrir, salva meu contato e tenta de novo.
+
+Boa viagem! 🎉`,
 ];
 
-// 3 variações da mensagem do Grupo VIP
+// 7 variações da mensagem do Grupo VIP
 const variacoesGrupoVip = [
   // Variação A
   (nome) =>
-    `${nome}, tem mais uma coisa importante! 🎁\n\nVocê também ganhou acesso ao nosso *Grupo VIP* no WhatsApp. É lá que rolam as dicas exclusivas, promoções e novidades de Gramado em primeira mão.\n\nEntra agora:\n${LINK_GRUPO}\n\nTe espero lá! 😉`,
+    `${nome}, tem mais uma coisa importante! 🎁
+
+Você também ganhou acesso ao nosso *Grupo VIP* no WhatsApp. É lá que rolam as dicas exclusivas, promoções e novidades de Gramado em primeira mão.
+
+Entra agora:
+${LINK_GRUPO}
+
+Te espero lá! 😉`,
 
   // Variação B
   (nome) =>
-    `Ah, ${nome}, não esquece disso! 👀\n\nJunto com o app você tem entrada no nosso *Grupo VIP* do WhatsApp — dicas que economizam de verdade, promoções e tudo o que acontece em Gramado em tempo real.\n\nSeu convite está aqui:\n${LINK_GRUPO}\n\nNos vemos por lá!`,
+    `Ah, ${nome}, não esquece disso! 👀
+
+Junto com o app você tem entrada no nosso *Grupo VIP* do WhatsApp — dicas que economizam de verdade, promoções e tudo o que acontece em Gramado em tempo real.
+
+Seu convite está aqui:
+${LINK_GRUPO}
+
+Nos vemos por lá!`,
 
   // Variação C
   (nome) =>
-    `E pra fechar, ${nome}: 💎\n\nToda semana a gente compartilha promoção, dica exclusiva e novidade de Gramado no *Grupo VIP*. Você já pode entrar, é só clicar:\n${LINK_GRUPO}\n\nBora pro grupo! 🤩`,
+    `E pra fechar, ${nome}: 💎
+
+Toda semana a gente compartilha promoção, dica exclusiva e novidade de Gramado no *Grupo VIP*. Você já pode entrar, é só clicar:
+${LINK_GRUPO}
+
+Bora pro grupo! 🤩`,
+
+  // Variação D — formal, poucos emojis
+  (nome) =>
+    `${nome}, um último aviso importante.
+
+Sua compra também inclui acesso ao nosso Grupo VIP no WhatsApp, onde compartilhamos dicas exclusivas, promoções e novidades de Gramado em primeira mão.
+
+Você pode entrar por aqui:
+${LINK_GRUPO}
+
+Será um prazer ter você no grupo.`,
+
+  // Variação E — começa pelo benefício
+  (nome) =>
+    `Quer economizar ainda mais em Gramado, ${nome}? 🤑
+
+No nosso *Grupo VIP* do WhatsApp saem promoções e dicas exclusivas que não vão pra mais ninguém. Seu acesso já está incluso:
+${LINK_GRUPO}
+
+Clica e entra, te espero lá!`,
+
+  // Variação F — casual e curta
+  (nome) =>
+    `Ah ${nome}, entra no nosso *Grupo VIP*! 🙌
+
+É onde rola promoção, dica e novidade de Gramado em tempo real.
+
+${LINK_GRUPO}
+
+Bora! 😄`,
+
+  // Variação G — curiosidade / FOMO
+  (nome) =>
+    `${nome}, você não vai querer ficar de fora dessa. 👇
+
+No *Grupo VIP* a galera recebe as melhores dicas e promoções de Gramado antes de todo mundo. E o seu acesso já está liberado:
+${LINK_GRUPO}
+
+Entra agora que tá começando! 🔥`,
 ];
 
 // =====================================================
