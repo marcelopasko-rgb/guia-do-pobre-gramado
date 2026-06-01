@@ -42,16 +42,16 @@ module.exports = async function handler(req, res) {
 
     if (telefone) {
       if (evento === "order_approved") {
-        // Mensagem 1: boas-vindas + link do app
-        const msg1 = `Olá, ${primeiroNome}! 😊 Aqui é o Marcelo, do Guia do Pobre em Gramado.\n\nSua compra foi aprovada! 🎉\n\nAcesse seu app pelo link:\nhttps://guia-do-pobre-gramado.vercel.app/\n\nPara fazer login, use o mesmo e-mail da compra. Se não conseguir clicar no link acima, salve meu número nos contatos e tente novamente.\n\nBoa viagem e aproveite os cupons para economizar! 🥰`;
+        // Mensagem 1: boas-vindas + link do app (1 de 3 variações sorteadas)
+        const msg1 = escolherVariacao(variacoesBoasVindas)(primeiroNome);
         whatsappResposta = await enviarWhatsApp(telefone, msg1);
         whatsappEnviado = !whatsappResposta.error;
 
         // Aguarda um tempo aleatório entre 10 e 30 segundos (parece mais orgânico)
         await delay(delayAleatorio(10000, 30000));
 
-        // Mensagem 2: link do grupo VIP com preview
-        const textoGrupo = `${primeiroNome}, outra coisa importante!\n\nVocê também tem acesso ao nosso *Grupo VIP* no WhatsApp, onde são compartilhadas dicas exclusivas, promoções e novidades de Gramado em tempo real.\n\nEntre agora pelo link:\nhttps://chat.whatsapp.com/FWQr1VHGXMb52H69SXWzZq\n\nNos vemos lá!`;
+        // Mensagem 2: link do grupo VIP com preview (1 de 3 variações sorteadas)
+        const textoGrupo = escolherVariacao(variacoesGrupoVip)(primeiroNome);
         await enviarWhatsAppLink(telefone, textoGrupo);
 
       } else if (evento === "carrinho_abandonado" || evento === "cart_abandoned") {
@@ -98,6 +98,45 @@ module.exports = async function handler(req, res) {
 };
 
 // =====================================================
+// Variações de mensagens (compra aprovada)
+// Estruturas genuinamente diferentes para quebrar o
+// padrão de repetição detectado como spam.
+// =====================================================
+
+const LINK_APP = "https://guia-do-pobre-gramado.vercel.app/";
+const LINK_GRUPO = "https://chat.whatsapp.com/FWQr1VHGXMb52H69SXWzZq";
+
+// 3 variações da mensagem de boas-vindas
+const variacoesBoasVindas = [
+  // Variação A — saudação, anúncio, link, instruções
+  (nome) =>
+    `Olá, ${nome}! 😊 Aqui é o Marcelo, do Guia do Pobre em Gramado.\n\nSua compra foi aprovada! 🎉\n\nAcesse seu app pelo link:\n${LINK_APP}\n\nPara fazer login, use o mesmo e-mail da compra. Se não conseguir clicar no link acima, salve meu número nos contatos e tente novamente.\n\nBoa viagem e aproveite os cupons para economizar! 🥰`,
+
+  // Variação B — confirmação primeiro, login antes do link, fechamento curto
+  (nome) =>
+    `${nome}, deu tudo certo com seu pagamento! ✅\n\nSeja muito bem-vindo(a) ao Guia do Pobre em Gramado — quem fala aqui é o Marcelo. Seu acesso já está liberado: basta entrar com o mesmo e-mail que você usou na compra.\n\n👉 ${LINK_APP}\n\nDica: se o link não abrir de primeira, salva meu contato e tenta de novo.\n\nBora economizar em Gramado! 💚`,
+
+  // Variação C — conversacional, frases curtas, link no meio
+  (nome) =>
+    `Oi, ${nome}! Aqui é o Marcelo do Guia do Pobre em Gramado. 🙌\n\nTô passando pra avisar que sua compra foi confirmada e seu app já está no ar:\n${LINK_APP}\n\nPra acessar, é só entrar com o e-mail da compra. Caso o link não abra, salva meu número e clica de novo que funciona certinho.\n\nAproveita bastante e boa viagem! 😄`,
+];
+
+// 3 variações da mensagem do Grupo VIP
+const variacoesGrupoVip = [
+  // Variação A
+  (nome) =>
+    `${nome}, tem mais uma coisa importante! 🎁\n\nVocê também ganhou acesso ao nosso *Grupo VIP* no WhatsApp. É lá que rolam as dicas exclusivas, promoções e novidades de Gramado em primeira mão.\n\nEntra agora:\n${LINK_GRUPO}\n\nTe espero lá! 😉`,
+
+  // Variação B
+  (nome) =>
+    `Ah, ${nome}, não esquece disso! 👀\n\nJunto com o app você tem entrada no nosso *Grupo VIP* do WhatsApp — dicas que economizam de verdade, promoções e tudo o que acontece em Gramado em tempo real.\n\nSeu convite está aqui:\n${LINK_GRUPO}\n\nNos vemos por lá!`,
+
+  // Variação C
+  (nome) =>
+    `E pra fechar, ${nome}: 💎\n\nToda semana a gente compartilha promoção, dica exclusiva e novidade de Gramado no *Grupo VIP*. Você já pode entrar, é só clicar:\n${LINK_GRUPO}\n\nBora pro grupo! 🤩`,
+];
+
+// =====================================================
 // Mensagens por evento
 // =====================================================
 
@@ -123,6 +162,11 @@ function delay(ms) {
 // Retorna um valor aleatório (em ms) entre min e max, inclusive
 function delayAleatorio(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+// Sorteia uma das variações de uma lista
+function escolherVariacao(variacoes) {
+  return variacoes[Math.floor(Math.random() * variacoes.length)];
 }
 
 function limparTelefone(tel) {
@@ -166,7 +210,7 @@ async function enviarWhatsAppLink(telefone, mensagem) {
         phone: telefone,
         message: mensagem,
         image: "https://guia-do-pobre-gramado.vercel.app/icone_512.png",
-        linkUrl: "https://chat.whatsapp.com/FWQr1VHGXMb52H69SXWzZq",
+        linkUrl: LINK_GRUPO,
         title: "Grupo VIP - Guia do Pobre em Gramado",
         linkDescription: "Dicas exclusivas, promoções e novidades de Gramado em tempo real.",
       }),
