@@ -47,8 +47,8 @@ module.exports = async function handler(req, res) {
         whatsappResposta = await enviarWhatsApp(telefone, msg1);
         whatsappEnviado = !whatsappResposta.error;
 
-        // Aguarda 10 segundos
-        await delay(10000);
+        // Aguarda um tempo aleatório entre 10 e 30 segundos (parece mais orgânico)
+        await delay(delayAleatorio(10000, 30000));
 
         // Mensagem 2: link do grupo VIP com preview
         const textoGrupo = `${primeiroNome}, outra coisa importante!\n\nVocê também tem acesso ao nosso *Grupo VIP* no WhatsApp, onde são compartilhadas dicas exclusivas, promoções e novidades de Gramado em tempo real.\n\nEntre agora pelo link:\nhttps://chat.whatsapp.com/FWQr1VHGXMb52H69SXWzZq\n\nNos vemos lá!`;
@@ -118,6 +118,11 @@ function montarMensagem(evento, nome, codigoPix) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Retorna um valor aleatório (em ms) entre min e max, inclusive
+function delayAleatorio(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function limparTelefone(tel) {
