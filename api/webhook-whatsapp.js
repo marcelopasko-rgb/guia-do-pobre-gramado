@@ -18,24 +18,34 @@ module.exports = async function handler(req, res) {
 
     const payload = req.body;
 
-    // A Kiwify usa "webhook_event_type" para vendas e "event" para abandono
-    const evento = payload.webhook_event_type || payload.event;
+    // O abandono de carrinho tem payload DIFERENTE: não tem "webhook_event_type"
+    // nem "event", os dados ficam dentro de "cart" e o evento é identificado
+    // por cart.status === "abandoned".
+    const ehAbandono = payload.cart?.status === "abandoned";
+    const evento = ehAbandono
+      ? "cart_abandoned"
+      : payload.webhook_event_type || payload.event;
 
-    // Dados do cliente — estrutura diferente dependendo do evento
-    const customer = payload.Customer || payload.customer || {};
-    const nomeCompleto = customer.full_name || customer.name || customer.first_name || "";
+    // Fonte dos dados do cliente muda conforme o tipo de evento
+    const fonte = ehAbandono ? payload.cart : payload.Customer || payload.customer || {};
+    const nomeCompleto = fonte.full_name || fonte.name || fonte.first_name || "";
     const primeiroNome = nomeCompleto.split(" ")[0] || "amigo(a)";
-    const email = customer.email || null;
-    const telefone = limparTelefone(customer.mobile || customer.phone);
-    const produto = payload.Product?.product_name || null;
+    const email = fonte.email || null;
+    const telefone = limparTelefone(fonte.mobile || fonte.phone);
+    const produto = payload.Product?.product_name || payload.cart?.product_name || null;
     const valor = payload.Commissions?.charge_amount ? Number(payload.Commissions.charge_amount) / 100 : null;
-    const orderId = payload.order_id || payload.checkout_id || payload.id || null;
+    const orderId = payload.order_id || payload.checkout_id || payload.id || payload.cart?.id || null;
     const codigoPix = payload.pix_code || payload.payment?.pix_code || payload.payment?.pix_qr || null;
 
-    // Link de abandono (vem direto como checkout_url)
-    const linkAbandono = payload.checkout_url
-      ? `${payload.checkout_url}?coupon=POBRE50`
-      : null;
+    // Link de recuperação: cart.checkout_link é só o slug (ex: "fN5HZp2"),
+    // precisa virar URL completa com o cupom de 25% e os dados do cliente
+    // pré-preenchidos (name, email, phone) — tudo codificado pra URL.
+    const slugAbandono = payload.cart?.checkout_link || "fN5HZp2";
+    const paramsAbandono = new URLSearchParams({ coupon: CUPOM_ABANDONO });
+    if (nomeCompleto) paramsAbandono.set("name", nomeCompleto);
+    if (email) paramsAbandono.set("email", email);
+    if (telefone) paramsAbandono.set("phone", telefone);
+    const linkAbandono = `https://pay.kiwify.com.br/${slugAbandono}?${paramsAbandono.toString()}`;
 
     let whatsappEnviado = false;
     let whatsappResposta = null;
@@ -55,16 +65,16 @@ module.exports = async function handler(req, res) {
         await enviarWhatsAppLink(telefone, textoGrupo);
 
       } else if (evento === "carrinho_abandonado" || evento === "cart_abandoned") {
-        // Mensagem 1: cupom + link personalizado
-        const msgAbandono = `Oi, ${primeiroNome}! 😊\n\nVi que você se interessou pelo aplicativo Guia do Pobre em Gramado, mas não finalizou a compra.\n\nQuero te dar uma condição especial: use o cupom *POBRE50* e garanta 50% de desconto! 🎉\n\n⚠️ Atenção: o cupom é válido por apenas 3 horas!\n\n👉 Acesse pelo seu link exclusivo:\n${linkAbandono || "https://pay.kiwify.com.br/fN5HZp2"}\n\nQualquer dúvida, é só chamar! 😊`;
+        // Mensagem 1: recuperação com cupom de 25% (1 de 5 variações sorteadas)
+        const msgAbandono = escolherVariacao(variacoesAbandono)(primeiroNome, linkAbandono);
         whatsappResposta = await enviarWhatsApp(telefone, msgAbandono);
         whatsappEnviado = !whatsappResposta.error;
 
-        // Aguarda 5 segundos
-        await delay(5000);
+        // Aguarda um tempo aleatório entre 8 e 15 segundos
+        await delay(delayAleatorio(8000, 15000));
 
         // Mensagem 2: dica do contato
-        await enviarWhatsApp(telefone, "Obs.: às vezes é necessário salvar meu contato para conseguir clicar no link.");
+        await enviarWhatsApp(telefone, "Obs.: às vezes é necessário salvar meu contato para conseguir clicar no link. 😉");
 
       } else {
         // Outros eventos
@@ -105,6 +115,9 @@ module.exports = async function handler(req, res) {
 
 const LINK_APP = "https://guia-do-pobre-gramado.vercel.app/";
 const LINK_GRUPO = "https://chat.whatsapp.com/FWQr1VHGXMb52H69SXWzZq";
+
+// Cupom usado na recuperação de carrinho abandonado (25% OFF)
+const CUPOM_ABANDONO = "POBRE25";
 
 // 7 variações da mensagem de boas-vindas
 const variacoesBoasVindas = [
@@ -261,6 +274,87 @@ No *Grupo VIP* a galera recebe as melhores dicas e promoções de Gramado antes 
 ${LINK_GRUPO}
 
 Entra agora que tá começando! 🔥`,
+];
+
+// =====================================================
+// Variações da mensagem de recuperação (carrinho abandonado)
+// Cupom de 25% OFF válido por 3 horas. Todas usam o nome.
+// =====================================================
+
+const variacoesAbandono = [
+  // Variação A — calorosa e clássica
+  (nome, link) =>
+    `Oi, ${nome}! 😊 Aqui é o Marcelo, do Guia do Pobre em Gramado.
+
+Vi que você começou a garantir o app mas não finalizou. Sem problema!
+
+Pra te ajudar a decidir, separei um cupom de *25% de desconto* só pra você. 🎉
+
+⏰ Mas corre: vale só pelas próximas *3 horas*.
+
+👉 É só finalizar por aqui:
+
+${link}
+
+Qualquer dúvida, é só me chamar! 😉`,
+
+  // Variação B — direta, foco na urgência
+  (nome, link) =>
+    `${nome}, seu desconto está te esperando! ⏳
+
+Notei que você não concluiu a compra do Guia do Pobre em Gramado.
+
+Já deixei um cupom de *25% OFF* aplicado no seu carrinho, mas ele expira em *3 horas*.
+
+Garante agora:
+
+${link}
+
+Não deixa essa economia passar! 💚`,
+
+  // Variação C — conversacional, abre espaço pra dúvida
+  (nome, link) =>
+    `Oi ${nome}! 🙌 Aqui é o Marcelo do Guia do Pobre em Gramado.
+
+Ficou alguma dúvida sobre o app? Posso te ajudar.
+
+E pra facilitar sua decisão, tô te dando *25% de desconto*, válido pelas próximas *3 horas*. 🎁
+
+É só clicar e finalizar:
+
+${link}
+
+Tô por aqui se precisar! 😄`,
+
+  // Variação D — formal, poucos emojis
+  (nome, link) =>
+    `Olá, ${nome}. Sou o Marcelo, do Guia do Pobre em Gramado.
+
+Percebi que você iniciou a compra do aplicativo mas não a concluiu.
+
+Para ajudar, disponibilizei um cupom de 25% de desconto, válido pelas próximas 3 horas.
+
+Você pode finalizar por este link:
+
+${link}
+
+Fico à disposição para qualquer dúvida.`,
+
+  // Variação E — curiosidade / FOMO
+  (nome, link) =>
+    `${nome}, você esqueceu algo! 👀
+
+Seu acesso ao Guia do Pobre em Gramado ficou quase pronto.
+
+Pra não perder a viagem econômica que você planejou, liberei *25% OFF* no seu carrinho. 🤑
+
+⚠️ Atenção: o cupom some em *3 horas*.
+
+Finaliza aqui antes que acabe:
+
+${link}
+
+Bora? 🔥`,
 ];
 
 // =====================================================
