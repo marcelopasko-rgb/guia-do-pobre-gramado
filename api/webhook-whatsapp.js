@@ -282,79 +282,85 @@ Entra agora que tá começando! 🔥`,
 // =====================================================
 
 const variacoesAbandono = [
-  // Variação A — calorosa e clássica
+  // Variacao A - identica ao formato pedido
   (nome, link) =>
-    `Oi, ${nome}! 😊 Aqui é o Marcelo, do Guia do Pobre em Gramado.
+    `Oi, ${nome}! 😊
 
-Vi que você começou a garantir o app mas não finalizou. Sem problema!
+Vi que você se interessou pelo *aplicativo Guia do Pobre em Gramado*, mas não finalizou a compra.
 
-Pra te ajudar a decidir, separei um cupom de *25% de desconto* só pra você. 🎉
+Quero te dar uma condição especial: use o cupom *${CUPOM_ABANDONO}* e garanta *25% de desconto*! 🎉
 
-⏰ Mas corre: vale só pelas próximas *3 horas*.
+⚠️ Atenção: o cupom é válido por apenas *3 horas*!
+
+👉 Acesse pelo seu link exclusivo:
+
+${link}
+
+Qualquer dúvida, é só chamar! 😊`,
+
+  // Variacao B - urgencia
+  (nome, link) =>
+    `${nome}, seu desconto tá te esperando! ⏳
+
+Você começou a garantir o *Guia do Pobre em Gramado*, mas não finalizou a compra.
+
+Liberei o cupom *${CUPOM_ABANDONO}* com *25% de desconto* só pra você! 🎉
+
+⚠️ Mas corre: vale só pelas próximas *3 horas*!
+
+👉 Finalize pelo seu link exclusivo:
+
+${link}
+
+Qualquer dúvida, é só me chamar! 😊`,
+
+  // Variacao C - conversacional
+  (nome, link) =>
+    `Oi, ${nome}! 🙌
+
+Vi que você se interessou pelo *Guia do Pobre em Gramado*, mas a compra ficou pela metade.
+
+Pra te ajudar a decidir, use o cupom *${CUPOM_ABANDONO}* e ganhe *25% de desconto*! 🎁
+
+⚠️ Atenção: o cupom vale só por *3 horas*!
 
 👉 É só finalizar por aqui:
 
 ${link}
 
-Qualquer dúvida, é só me chamar! 😉`,
+Ficou alguma dúvida? Me chama! 😄`,
 
-  // Variação B — direta, foco na urgência
+  // Variacao D - formal
   (nome, link) =>
-    `${nome}, seu desconto está te esperando! ⏳
+    `Olá, ${nome}.
 
-Notei que você não concluiu a compra do Guia do Pobre em Gramado.
+Notei que você iniciou a compra do *aplicativo Guia do Pobre em Gramado*, mas não a concluiu.
 
-Já deixei um cupom de *25% OFF* aplicado no seu carrinho, mas ele expira em *3 horas*.
+Para ajudar, use o cupom *${CUPOM_ABANDONO}* e garanta *25% de desconto*.
 
-Garante agora:
+⚠️ O cupom é válido apenas pelas próximas *3 horas*.
 
-${link}
-
-Não deixa essa economia passar! 💚`,
-
-  // Variação C — conversacional, abre espaço pra dúvida
-  (nome, link) =>
-    `Oi ${nome}! 🙌 Aqui é o Marcelo do Guia do Pobre em Gramado.
-
-Ficou alguma dúvida sobre o app? Posso te ajudar.
-
-E pra facilitar sua decisão, tô te dando *25% de desconto*, válido pelas próximas *3 horas*. 🎁
-
-É só clicar e finalizar:
-
-${link}
-
-Tô por aqui se precisar! 😄`,
-
-  // Variação D — formal, poucos emojis
-  (nome, link) =>
-    `Olá, ${nome}. Sou o Marcelo, do Guia do Pobre em Gramado.
-
-Percebi que você iniciou a compra do aplicativo mas não a concluiu.
-
-Para ajudar, disponibilizei um cupom de 25% de desconto, válido pelas próximas 3 horas.
-
-Você pode finalizar por este link:
+👉 Você pode finalizar por este link:
 
 ${link}
 
 Fico à disposição para qualquer dúvida.`,
 
-  // Variação E — curiosidade / FOMO
+  // Variacao E - curiosidade / FOMO
   (nome, link) =>
     `${nome}, você esqueceu algo! 👀
 
-Seu acesso ao Guia do Pobre em Gramado ficou quase pronto.
+Sua compra do *Guia do Pobre em Gramado* ficou quase pronta.
 
-Pra não perder a viagem econômica que você planejou, liberei *25% OFF* no seu carrinho. 🤑
+Garanti *25% de desconto* pra você com o cupom *${CUPOM_ABANDONO}*! 🤑
 
-⚠️ Atenção: o cupom some em *3 horas*.
+⚠️ Atenção: ele some em *3 horas*!
 
-Finaliza aqui antes que acabe:
+👉 Finalize antes que acabe:
 
 ${link}
 
-Bora? 🔥`,
+Qualquer dúvida, é só chamar! 😊`,
 ];
 
 // =====================================================
