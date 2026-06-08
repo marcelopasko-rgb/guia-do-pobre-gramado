@@ -23,20 +23,19 @@ module.exports = async function handler(req, res) {
     // realmente põe telefone/nome no evento de carrinho abandonado.
     console.log("[webhook] payload recebido:", JSON.stringify(payload));
 
-    // --- Detecção de evento (robusta) ---
-    // A Kiwify pode identificar o abandono de 3 formas diferentes dependendo
-    // da versão do webhook. Aceitamos todas:
-    //   - webhook_event_type / event === "carrinho_abandonado"
-    //   - cart.status === "abandoned"
+    // --- Detecção de evento ---
+    // IMPORTANTE: a Kiwify NÃO envia campo de tipo de evento no carrinho
+    // abandonado. O payload chega como { url, signature, cart: {...} } —
+    // sem cart.status, sem webhook_event_type, sem event. A presença do
+    // objeto payload.cart (com checkout_link) é o que identifica o abandono.
+    // Os demais eventos (compra aprovada, reembolso, etc.) trazem
+    // webhook_event_type e NÃO trazem cart.
+    const ehAbandono = !!(payload.cart && payload.cart.checkout_link);
+
     const eventoBruto =
       payload.webhook_event_type ||
       payload.event ||
-      (payload.cart?.status === "abandoned" ? "carrinho_abandonado" : null);
-
-    const ehAbandono =
-      eventoBruto === "carrinho_abandonado" ||
-      eventoBruto === "cart_abandoned" ||
-      payload.cart?.status === "abandoned";
+      (ehAbandono ? "carrinho_abandonado" : null);
 
     const evento = ehAbandono ? "carrinho_abandonado" : eventoBruto;
 
