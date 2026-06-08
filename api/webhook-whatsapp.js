@@ -89,16 +89,26 @@ module.exports = async function handler(req, res) {
         await enviarWhatsAppLink(telefone, textoGrupo);
 
       } else if (evento === "carrinho_abandonado" || evento === "cart_abandoned") {
-        // Mensagem 1: recuperação com cupom de 25% (1 de 5 variações sorteadas)
-        const msgAbandono = escolherVariacao(variacoesAbandono)(primeiroNome, linkAbandono);
-        whatsappResposta = await enviarWhatsApp(telefone, msgAbandono);
-        whatsappEnviado = !whatsappResposta.error;
+        // Só envia o abandono para quem NUNCA conversou no WhatsApp.
+        // Quem já trocou mensagem com você (contato existente) é pulado.
+        const conversou = await jaConversou(telefone);
 
-        // Aguarda um tempo aleatório entre 8 e 15 segundos
-        await delay(delayAleatorio(8000, 15000));
+        if (conversou) {
+          console.log(`[webhook] ${telefone} já tem conversa — abandono NÃO enviado.`);
+          whatsappEnviado = false;
+          whatsappResposta = { skipped: "contato_existente" };
+        } else {
+          // Mensagem 1: recuperação com cupom de 25% (1 de 5 variações sorteadas)
+          const msgAbandono = escolherVariacao(variacoesAbandono)(primeiroNome, linkAbandono);
+          whatsappResposta = await enviarWhatsApp(telefone, msgAbandono);
+          whatsappEnviado = !whatsappResposta.error;
 
-        // Mensagem 2: dica do contato
-        await enviarWhatsApp(telefone, "Obs.: às vezes é necessário salvar meu contato para conseguir clicar no link. 😉");
+          // Aguarda um tempo aleatório entre 8 e 15 segundos
+          await delay(delayAleatorio(8000, 15000));
+
+          // Mensagem 2: dica do contato
+          await enviarWhatsApp(telefone, "Obs.: às vezes é necessário salvar meu contato para conseguir clicar no link. 😉");
+        }
 
       } else {
         // Outros eventos
@@ -427,6 +437,39 @@ function limparTelefone(tel) {
   let n = tel.replace(/\D/g, "");
   if (!n.startsWith("55")) n = "55" + n;
   return n;
+}
+
+// Verifica se já existe uma conversa com esse número no WhatsApp.
+// Retorna true se a pessoa já trocou mensagens com você (chat existente,
+// com lastMessageTime), e false se for um contato totalmente novo.
+//
+// IMPORTANTE: em caso de erro ou resposta inesperada, retorna false (trata
+// como contato novo e ENVIA). Confira o log "[jaConversou] metadata de ..."
+// no PRIMEIRO teste pra validar que o endpoint está respondendo certo.
+async function jaConversou(telefone) {
+  const url = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/chat-metadata/${telefone}`;
+
+  try {
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: { "Client-Token": process.env.ZAPI_CLIENT_TOKEN },
+    });
+
+    if (!resp.ok) {
+      // 404 normalmente = nenhum chat com esse número → contato novo
+      console.warn(`[jaConversou] status ${resp.status} para ${telefone} (tratando como contato novo)`);
+      return false;
+    }
+
+    const data = await resp.json();
+    console.log(`[jaConversou] metadata de ${telefone}:`, JSON.stringify(data));
+
+    // Conversa existente = tem histórico (lastMessageTime preenchido)
+    return !!(data && data.lastMessageTime);
+  } catch (err) {
+    console.warn(`[jaConversou] erro para ${telefone}: ${err.message} (tratando como contato novo)`);
+    return false;
+  }
 }
 
 // Mensagem simples
