@@ -439,37 +439,53 @@ function limparTelefone(tel) {
   return n;
 }
 
+// Busca o metadata do chat tentando os dois caminhos possíveis, porque a
+// documentação da Z-API é inconsistente entre /chats/{phone} e /chat/{phone}.
+// Retorna o objeto de metadata, ou undefined se nenhum caminho responder.
+async function buscarMetadataChat(telefone) {
+  const base = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}`;
+  const caminhos = [`${base}/chats/${telefone}`, `${base}/chat/${telefone}`];
+
+  for (const url of caminhos) {
+    try {
+      const resp = await fetch(url, {
+        method: "GET",
+        headers: { "Client-Token": process.env.ZAPI_CLIENT_TOKEN },
+      });
+      const data = await resp.json().catch(() => null);
+
+      // Erro de rota (endpoint errado) → tenta o próximo caminho
+      if (data && data.error === "NOT_FOUND") continue;
+      if (!resp.ok) continue;
+
+      return data; // resposta válida (objeto de metadata, ou vazio se não há chat)
+    } catch (_) {
+      // tenta o próximo caminho
+    }
+  }
+  return undefined; // nenhum caminho respondeu
+}
+
 // Verifica se já existe uma conversa com esse número no WhatsApp.
 // Retorna true se a pessoa já trocou mensagens com você (chat existente,
-// com lastMessageTime), e false se for um contato totalmente novo.
+// com lastMessageTime — conta mensagem em qualquer direção, inclusive as
+// que você enviou), e false se for um contato totalmente novo.
 //
-// IMPORTANTE: em caso de erro ou resposta inesperada, retorna false (trata
-// como contato novo e ENVIA). Confira o log "[jaConversou] metadata de ..."
-// no PRIMEIRO teste pra validar que o endpoint está respondendo certo.
+// FALHA SEGURA: se a checagem não conseguir confirmar (Z-API fora do ar,
+// ambos os caminhos com erro), retorna TRUE = "já conversou" = NÃO envia.
+// Isso respeita seu pedido de só falar com contatos novos. Se preferir o
+// contrário (na dúvida, ENVIAR), troque o "return true" abaixo por "return false".
 async function jaConversou(telefone) {
-  const url = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/chat-metadata/${telefone}`;
+  const data = await buscarMetadataChat(telefone);
+  console.log(`[jaConversou] metadata de ${telefone}:`, JSON.stringify(data));
 
-  try {
-    const resp = await fetch(url, {
-      method: "GET",
-      headers: { "Client-Token": process.env.ZAPI_CLIENT_TOKEN },
-    });
-
-    if (!resp.ok) {
-      // 404 normalmente = nenhum chat com esse número → contato novo
-      console.warn(`[jaConversou] status ${resp.status} para ${telefone} (tratando como contato novo)`);
-      return false;
-    }
-
-    const data = await resp.json();
-    console.log(`[jaConversou] metadata de ${telefone}:`, JSON.stringify(data));
-
-    // Conversa existente = tem histórico (lastMessageTime preenchido)
-    return !!(data && data.lastMessageTime);
-  } catch (err) {
-    console.warn(`[jaConversou] erro para ${telefone}: ${err.message} (tratando como contato novo)`);
-    return false;
+  if (data === undefined) {
+    console.warn(`[jaConversou] não foi possível confirmar ${telefone} — pulando o envio por segurança.`);
+    return true;
   }
+
+  // Conversa existente = tem histórico (lastMessageTime preenchido)
+  return !!(data && data.lastMessageTime);
 }
 
 // Mensagem simples
