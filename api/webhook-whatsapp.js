@@ -24,23 +24,20 @@ module.exports = async function handler(req, res) {
     console.log("[webhook] payload recebido:", JSON.stringify(payload));
 
     // --- Detecção de evento ---
-    // IMPORTANTE: o corpo do POST chega ACHATADO no nível raiz, ex:
-    // { checkout_link, name, phone, status: "abandoned", ... }.
-    // O wrapper { url, signature, cart } que aparece no painel da Kiwify é só
-    // exibição — não existe payload.cart no req.body real.
-    // Detectamos por status === "abandoned" ou pela presença de checkout_link.
-    // Mantemos também a variante aninhada (payload.cart) por segurança.
+    // O tipo de evento EXPLÍCITO tem prioridade ABSOLUTA. A compra aprovada
+    // chega com webhook_event_type = "order_approved" — e também carrega um
+    // checkout_link. Por isso NÃO dá pra usar checkout_link como sinal de
+    // abandono: foi exatamente isso que fez o comprador receber a mensagem
+    // de abandono em vez da de confirmação.
+    // O carrinho abandonado é o único evento que NÃO traz tipo explícito e
+    // vem com status === "abandoned" no nível raiz (req.body chega achatado).
+    const tipoExplicito = payload.webhook_event_type || payload.event || null;
+
     const ehAbandono =
-      payload.status === "abandoned" ||
-      payload.cart?.status === "abandoned" ||
-      !!(payload.checkout_link || payload.cart?.checkout_link);
+      !tipoExplicito &&
+      (payload.status === "abandoned" || payload.cart?.status === "abandoned");
 
-    const eventoBruto =
-      payload.webhook_event_type ||
-      payload.event ||
-      (ehAbandono ? "carrinho_abandonado" : null);
-
-    const evento = ehAbandono ? "carrinho_abandonado" : eventoBruto;
+    const evento = ehAbandono ? "carrinho_abandonado" : tipoExplicito;
 
     // --- Extração de dados do cliente (robusta) ---
     // NÃO assumimos onde os dados estão. Procuramos em todas as fontes
