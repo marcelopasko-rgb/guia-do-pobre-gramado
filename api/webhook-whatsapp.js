@@ -111,7 +111,9 @@ module.exports = async function handler(req, res) {
     }
 
     await salvarSupabase({
-      evento,
+      // Fallback: a coluna "evento" é NOT NULL no Supabase. Garante que um
+      // evento não reconhecido nunca derrube o insert.
+      evento: evento || "desconhecido",
       order_id: orderId,
       nome: nomeCompleto,
       email,
