@@ -16,31 +16,56 @@ module.exports = async function handler(req, res) {
       return res.status(401).send("Token inválido");
     }
 
-    const payload = req.body;
+    const payload = req.body || {};
 
-    // O abandono de carrinho tem payload DIFERENTE: não tem "webhook_event_type"
-    // nem "event", os dados ficam dentro de "cart" e o evento é identificado
-    // por cart.status === "abandoned".
-    const ehAbandono = payload.cart?.status === "abandoned";
-    const evento = ehAbandono
-      ? "cart_abandoned"
-      : payload.webhook_event_type || payload.event;
+    // DICA DE DEBUG: deixe esta linha ligada até confirmar que está funcionando.
+    // Ela mostra o payload cru nos logs da Vercel, revelando ONDE a Kiwify
+    // realmente põe telefone/nome no evento de carrinho abandonado.
+    console.log("[webhook] payload recebido:", JSON.stringify(payload));
 
-    // Fonte dos dados do cliente muda conforme o tipo de evento
-    const fonte = ehAbandono ? payload.cart : payload.Customer || payload.customer || {};
-    const nomeCompleto = fonte.full_name || fonte.name || fonte.first_name || "";
+    // --- Detecção de evento (robusta) ---
+    // A Kiwify pode identificar o abandono de 3 formas diferentes dependendo
+    // da versão do webhook. Aceitamos todas:
+    //   - webhook_event_type / event === "carrinho_abandonado"
+    //   - cart.status === "abandoned"
+    const eventoBruto =
+      payload.webhook_event_type ||
+      payload.event ||
+      (payload.cart?.status === "abandoned" ? "carrinho_abandonado" : null);
+
+    const ehAbandono =
+      eventoBruto === "carrinho_abandonado" ||
+      eventoBruto === "cart_abandoned" ||
+      payload.cart?.status === "abandoned";
+
+    const evento = ehAbandono ? "carrinho_abandonado" : eventoBruto;
+
+    // --- Extração de dados do cliente (robusta) ---
+    // NÃO assumimos onde os dados estão. Procuramos em todas as fontes
+    // possíveis (top-level, cart, Customer, customer) e pegamos a 1ª que tiver.
+    const fontes = [payload, payload.cart, payload.Customer, payload.customer].filter(Boolean);
+    const pega = (...chaves) => {
+      for (const f of fontes) {
+        for (const k of chaves) {
+          if (f && f[k]) return f[k];
+        }
+      }
+      return null;
+    };
+
+    const nomeCompleto = pega("full_name", "name", "first_name", "nome") || "";
     const primeiroNome = nomeCompleto.split(" ")[0] || "amigo(a)";
-    const email = fonte.email || null;
-    const telefone = limparTelefone(fonte.mobile || fonte.phone);
-    const produto = payload.Product?.product_name || payload.cart?.product_name || null;
+    const email = pega("email");
+    const telefone = limparTelefone(pega("mobile", "phone", "phone_number", "telefone", "cellphone"));
+    const produto = pega("product_name") || payload.Product?.product_name || null;
     const valor = payload.Commissions?.charge_amount ? Number(payload.Commissions.charge_amount) / 100 : null;
-    const orderId = payload.order_id || payload.checkout_id || payload.id || payload.cart?.id || null;
+    const orderId = pega("order_id", "checkout_id", "id") || payload.cart?.id || null;
     const codigoPix = payload.pix_code || payload.payment?.pix_code || payload.payment?.pix_qr || null;
 
-    // Link de recuperação: cart.checkout_link é só o slug (ex: "fN5HZp2"),
+    // Link de recuperação: checkout_link costuma ser só o slug (ex: "fN5HZp2"),
     // precisa virar URL completa com o cupom de 25% e os dados do cliente
     // pré-preenchidos (name, email, phone) — tudo codificado pra URL.
-    const slugAbandono = payload.cart?.checkout_link || "fN5HZp2";
+    const slugAbandono = pega("checkout_link") || "fN5HZp2";
     const paramsAbandono = new URLSearchParams({ coupon: CUPOM_ABANDONO });
     if (nomeCompleto) paramsAbandono.set("name", nomeCompleto);
     if (email) paramsAbandono.set("email", email);
