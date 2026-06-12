@@ -469,15 +469,19 @@ let _comprasCarregadas = false;
 
 async function verificarCompras() {
   try {
-    // Pega o email do usuário logado (do Supabase Auth)
-    const { data: { user } } = await _supabase.auth.getUser();
-    if (!user || !user.email) {
+    // Identidade vai pelo TOKEN (header Authorization), não mais pelo email na
+    // URL. O servidor extrai o email do token — ninguém consulta compra alheia.
+    const { data: { session } } = await _supabase.auth.getSession();
+    const token = session && session.access_token;
+    if (!token) {
       _minhasCompras = [];
       _comprasCarregadas = true;
       return [];
     }
 
-    const res = await fetch(`/api/minhas-compras?email=${encodeURIComponent(user.email)}`);
+    const res = await fetch('/api/minhas-compras', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
     if (!res.ok) {
       console.warn('[verificarCompras] Falha:', res.status);
       _minhasCompras = [];
@@ -807,432 +811,10 @@ async function baixarRoteiroPDF() {
   }
 }
 
-/* ═══ RESTAURANTES SECRETOS (BÔNUS EXCLUSIVO) ═══ */
-const restaurantesSecretos = [
-  // ── BUFFET LIVRE ────────────────────────────────────────────────────────
-  {
-    cat: 'Buffet Livre',
-    catIcon: '🍽️',
-    e: '🥩',
-    n: 'Serra Grill',
-    selo: 'O MELHOR DA CIDADE',
-    faixa: 'Médio',
-    preco: 'R$ 75 a R$ 110 por pessoa',
-    desc: 'O topo da categoria em Gramado. Combina a praticidade do buffet com a qualidade de um bom churrasco gaúcho. Buffet vasto, mas o destaque são as carnes grelhadas servidas na mesa.',
-    publico: 'Ambiente amplo, ideal para famílias. Bem localizado, experiência gastronômica excelente para um almoço completo.',
-    dica: 'Chegue um pouco antes das 12h30 na alta temporada para evitar filas.'
-  },
-  {
-    cat: 'Buffet Livre',
-    catIcon: '🍽️',
-    e: '👵',
-    n: 'Sabor da Nonna',
-    selo: 'MELHOR CUSTO-BENEFÍCIO',
-    faixa: 'Econômico',
-    preco: 'R$ 45 a R$ 65 por pessoa',
-    desc: 'Aquela comida caseira com tempero de vó. Preço super justo para os padrões de Gramado, com variedade excelente de pratos quentes, saladas e carnes.',
-    publico: 'Porto seguro do turista que quer comer muito bem, pagar pouco e sentir o sabor da culinária local sem frescuras.',
-    dica: 'Não saia de lá sem provar as sobremesas caseiras incluídas no buffet.'
-  },
-  {
-    cat: 'Buffet Livre',
-    catIcon: '🍽️',
-    e: '♨️',
-    n: 'Aquecee',
-    selo: null,
-    faixa: 'Baixo',
-    preco: 'R$ 35 a R$ 60 por pessoa',
-    desc: 'Buffet muito bem servido, focado na culinária do dia a dia com um toque de sofisticação. Comida sempre fresca, quentinha e com ótima reposição.',
-    publico: 'Perfeito para quem está batendo perna pelo centro e quer um almoço rápido, saboroso e com ambiente agradável e climatizado.',
-    dica: null
-  },
-  {
-    cat: 'Buffet Livre',
-    catIcon: '🍽️',
-    e: '🇧🇷',
-    n: 'Ita Brasil',
-    selo: null,
-    faixa: 'Médio',
-    preco: 'R$ 60 a R$ 80 por pessoa',
-    desc: 'Um dos buffets mais tradicionais da cidade, muito frequentado por moradores locais — sinal de qualidade. Comida simples, honesta, farta e muito saborosa.',
-    publico: 'Se quer economizar de verdade no almoço para investir em um jantar mais caro, o Ita Brasil é a escolha perfeita.',
-    dica: null
-  },
-
-  // ── FONDUE ───────────────────────────────────────────────────────────────
-  {
-    cat: 'Sequência de Fondue',
-    catIcon: '🫕',
-    e: '🕯️',
-    n: 'Belle du Valais',
-    selo: 'O MELHOR DA CIDADE',
-    faixa: 'Luxo',
-    preco: 'R$ 350 a R$ 500 por pessoa',
-    desc: 'Um dos melhores restaurantes suíços do Brasil. Ambiente cinematográfico, à luz de velas, com piano ao fundo e atendimento impecável. Ingredientes premium (queijos e chocolates).',
-    publico: 'Não é apenas um jantar, é uma celebração. Perfeito para casais em lua de mel ou comemorações especiais.',
-    dica: 'Exige reserva antecipada. Vá sem pressa para curtir o ritual de cada etapa.'
-  },
-  {
-    cat: 'Sequência de Fondue',
-    catIcon: '🫕',
-    e: '🧀',
-    n: 'Versoi Fondue',
-    selo: 'MELHOR CUSTO-BENEFÍCIO',
-    faixa: 'Médio',
-    preco: 'R$ 110 a R$ 160 por pessoa',
-    desc: 'Entrega a verdadeira experiência do fondue de Gramado (ambiente aconchegante, sequência completa e fartura) por um preço que cabe no bolso. Atendimento ágil.',
-    publico: 'Escolha inteligente pra quem quer viver a noite do fondue tradicional, comer até se fartar, sem estourar o orçamento.',
-    dica: 'Fique atento às opções de reposição: trazem mais queijo, carne e chocolate sempre que pedir.'
-  },
-  {
-    cat: 'Sequência de Fondue',
-    catIcon: '🫕',
-    e: '🏔️',
-    n: "D'Montreux",
-    selo: null,
-    faixa: 'Baixo',
-    preco: 'R$ 60 a R$ 100 por pessoa',
-    desc: 'Ambiente acolhedor e intimista que remete aos chalés alpinos. Sequência de carnes com cortes selecionados e molhos artesanais muito elogiados.',
-    publico: 'Excelente meio-termo: foge do agito das grandes casas de fondue e foca em uma noite agradável e saborosa.',
-    dica: null
-  },
-  {
-    cat: 'Sequência de Fondue',
-    catIcon: '🫕',
-    e: '🍫',
-    n: 'Tomasini',
-    selo: null,
-    faixa: 'Médio',
-    preco: 'R$ 100 a R$ 150 por pessoa',
-    desc: 'No coração de Gramado, casa super tradicional. Fondue de chocolate é um dos favoritos dos turistas pela qualidade do chocolate artesanal da região.',
-    publico: 'Muito fácil de acessar a pé para quem está hospedado no centro. Excelente estrutura para receber famílias.',
-    dica: null
-  },
-
-  // ── ITALIANO / GALETERIA ─────────────────────────────────────────────────
-  {
-    cat: 'Italiano / Galeteria',
-    catIcon: '🍝',
-    e: '🍷',
-    n: 'Casa Muttoni',
-    selo: 'O MELHOR DA CIDADE',
-    faixa: 'Moderado Alto',
-    preco: 'R$ 200 a R$ 250 por pessoa',
-    desc: 'Imersão na alta gastronomia italiana. Massas de fabricação própria (artesanais e frescas), molhos ricos em sabor e acompanhamentos que elevam o nível.',
-    publico: 'Ambiente lindo e sofisticado. Esqueça a correria de galeteria tradicional; aqui o foco é saborear cada prato com um bom vinho.',
-    dica: 'O galeto ao primo canto deles é incrivelmente crocante por fora e suculento por dentro.'
-  },
-  {
-    cat: 'Italiano / Galeteria',
-    catIcon: '🍝',
-    e: '🍗',
-    n: 'Galeto Itália',
-    selo: 'MELHOR CUSTO-BENEFÍCIO',
-    faixa: 'Médio',
-    preco: 'R$ 90 a R$ 120 por pessoa',
-    desc: 'Clássico rodízio italiano da Serra Gaúcha onde a comida não para de chegar. Sopa de capeletti, galeto, costelinha, vários tipos de massas, polenta e maionese.',
-    publico: 'Vá com muita fome. Lugar perfeito para entender a fama da fartura gastronômica da região sem pagar uma fortuna.',
-    dica: 'A sopa de capeletti que abre os trabalhos é divina, mas guarde espaço para o que vem depois!'
-  },
-  {
-    cat: 'Italiano / Galeteria',
-    catIcon: '🍝',
-    e: '🍾',
-    n: 'Cantina di Capo',
-    selo: null,
-    faixa: 'Médio',
-    preco: 'R$ 85 a R$ 130 por pessoa (pratos pra compartilhar)',
-    desc: 'Cantina italiana charmosa, com decoração temática (garrafas de vinho, toalhas xadrez). À la carte, porções muito bem servidas.',
-    publico: 'Excelente para um jantar aconchegante. Lasanha e filé à parmegiana são os grandes destaques.',
-    dica: null
-  },
-  {
-    cat: 'Italiano / Galeteria',
-    catIcon: '🍝',
-    e: '👨‍👩‍👧',
-    n: 'Família Guimarães',
-    selo: null,
-    faixa: 'Médio',
-    preco: 'R$ 80 a R$ 120 por pessoa',
-    desc: 'Restaurante familiar focado no conforto e sabor tradicional. Pratos clássicos da culinária italiana com ingredientes frescos e muito capricho.',
-    publico: 'Ambiente tranquilo, atendimento acolhedor e pratos que servem muito bem duas ou mais pessoas.',
-    dica: null
-  },
-
-  // ── CHURRASCARIA ─────────────────────────────────────────────────────────
-  {
-    cat: 'Churrascaria / Costela',
-    catIcon: '🥩',
-    e: '🔥',
-    n: 'Chama de Fogo',
-    selo: 'O MELHOR DA CIDADE',
-    faixa: 'Luxo',
-    preco: 'R$ 220 a R$ 300 por pessoa',
-    desc: 'Rodízio de carnes nobres de altíssimo padrão (cortes Angus e Hereford, picanha premium, cordeiro, assado de tira). Buffet inclui frutos do mar e queijos finos.',
-    publico: 'A melhor experiência de churrasco da região. Serviço impecável — os garçons são extremamente atentos aos cortes de preferência.',
-    dica: 'Peça o ponto da carne exatamente como gosta; os assadores são mestres nisso.'
-  },
-  {
-    cat: 'Churrascaria / Costela',
-    catIcon: '🥩',
-    e: '🤠',
-    n: 'Churrascaria Gramadense',
-    selo: 'MELHOR CUSTO-BENEFÍCIO',
-    faixa: 'Médio',
-    preco: 'R$ 110 a R$ 150 por pessoa',
-    desc: 'Tradicionalismo e fartura. Espeto corrido completo com os principais cortes gaúchos, mais buffet de saladas honesto, por preço extremamente competitivo.',
-    publico: 'Quer comer o verdadeiro churrasco gaúcho, em ambiente familiar, sem frescura e com preço justo? Escolha certa.',
-    dica: null
-  },
-  {
-    cat: 'Churrascaria / Costela',
-    catIcon: '🥩',
-    e: '✨',
-    n: 'Gramado & Brasa',
-    selo: null,
-    faixa: 'Moderado Alto',
-    preco: 'R$ 140 a R$ 190 por pessoa',
-    desc: 'Churrascaria moderna que une o clássico espeto corrido com cortes contemporâneos. Ambiente bonito, bem iluminado e confortável.',
-    publico: 'Ótima localização e excelente buffet de saladas. Agrada quem foca nas carnes e quem gosta de bons acompanhamentos.',
-    dica: null
-  },
-  {
-    cat: 'Churrascaria / Costela',
-    catIcon: '🥩',
-    e: '🛞',
-    n: 'Churrascaria Roda de Carroça',
-    selo: null,
-    faixa: 'Médio',
-    preco: 'R$ 120 a R$ 160 por pessoa',
-    desc: 'Imersão na cultura gaúcha. Ambiente rústico remete às tradições do campo, e o forte aqui é o costelão 12 horas e os cortes tradicionais assados na brasa.',
-    publico: 'Perfeito para quem busca atmosfera mais rústica e cultural durante a refeição.',
-    dica: null
-  },
-
-  // ── PIZZARIA ─────────────────────────────────────────────────────────────
-  {
-    cat: 'Pizzaria',
-    catIcon: '🍕',
-    e: '🪵',
-    n: 'Forneria 847',
-    selo: 'O MELHOR DA CIDADE',
-    faixa: 'Médio',
-    preco: 'R$ 100 a R$ 130 por pessoa',
-    desc: 'Pizzas artesanais de massa leve (longa fermentação) e ingredientes selecionados de alta qualidade. Estilo napolitano, assada em forno de alta temperatura.',
-    publico: 'Se prefere qualidade à quantidade e quer fugir da agitação dos rodízios, a Forneria oferece ambiente descolado e pizzas sofisticadas.',
-    dica: 'Harmonize a pizza com os coquetéis da casa ou uma cerveja artesanal local.'
-  },
-  {
-    cat: 'Pizzaria',
-    catIcon: '🍕',
-    e: '🔁',
-    n: 'Scur Pizzaria',
-    selo: 'MELHOR CUSTO-BENEFÍCIO',
-    faixa: 'Médio',
-    preco: 'R$ 90 a R$ 130 por pessoa',
-    desc: 'Rodízio de pizza mais famoso e tradicional de Gramado. Dezenas de sabores passando sem parar (salgadas e doces), massa fina, muito recheio + buffet de massas e petiscos.',
-    publico: 'Diversão e fartura garantidas para toda a família. Serviço rápido e custo-benefício imbatível na categoria de rodízio.',
-    dica: null
-  },
-  {
-    cat: 'Pizzaria',
-    catIcon: '🍕',
-    e: '🦒',
-    n: 'Kongo Pizzaria',
-    selo: 'MELHOR EXPERIÊNCIA TEMÁTICA',
-    faixa: 'Moderado Alto',
-    preco: 'R$ 160 a R$ 190 por pessoa',
-    desc: 'Imersão na selva do Congo. Decorada como floresta tropical, com animais animatrônicos, sons da natureza e pocket shows teatrais a cada hora.',
-    publico: 'Obrigatório se está viajando com crianças. Experiência visual e entretenimento compensam cada centavo.',
-    dica: 'Chegue cedo ou faça reserva antecipada no site para evitar as gigantescas filas na porta.'
-  },
-  {
-    cat: 'Pizzaria',
-    catIcon: '🍕',
-    e: '🌲',
-    n: 'The Petit (Canela)',
-    selo: null,
-    faixa: 'Médio',
-    preco: 'R$ 70 a R$ 100 por pessoa',
-    desc: 'Na cidade vizinha Canela. Pizzaria super charmosa e aconchegante. Ambiente intimista e pizzas com combinações criativas.',
-    publico: 'Excelente desculpa para esticar o passeio até Canela no fim do dia e jantar em um lugar acolhedor.',
-    dica: null
-  },
-
-  // ── LANCHES / BURGERS ────────────────────────────────────────────────────
-  {
-    cat: 'Lanches Rápidos / Burgers',
-    catIcon: '🍔',
-    e: '🐶',
-    n: 'Cusco Burger',
-    selo: 'MELHOR CUSTO-BENEFÍCIO',
-    faixa: 'Econômico',
-    preco: 'R$ 45 a R$ 65 por pessoa',
-    desc: 'Hamburgueres artesanais premium com identidade gaúcha ("Cusco" é gíria local para cachorro). Carnes altas, suculentas, grelhadas no fogo, excelentes combinações de queijos.',
-    publico: 'Burgers com qualidade de metrópole, mas com alma da Serra Gaúcha. Preço excelente pela qualidade gourmet.',
-    dica: 'Peça a batata rústica com tempero da casa para acompanhar.'
-  },
-  {
-    cat: 'Lanches Rápidos / Burgers',
-    catIcon: '🍔',
-    e: '🥙',
-    n: 'Gnomo Lanches',
-    selo: null,
-    faixa: 'Econômico',
-    preco: 'R$ 40 a R$ 60 por pessoa',
-    desc: 'Lanchonete mais tradicional do centro de Gramado. Grande destaque é o autêntico Xis Gaúcho — sanduíche gigante prensado que vale por uma refeição completa.',
-    publico: 'Se não é do RS, precisa provar o "Xis". Fica bem na avenida principal, perfeito para observar o movimento da cidade.',
-    dica: null
-  },
-  {
-    cat: 'Lanches Rápidos / Burgers',
-    catIcon: '🍔',
-    e: '🦅',
-    n: 'Águia Lanches',
-    selo: null,
-    faixa: 'Econômico',
-    preco: 'R$ 35 a R$ 55 por pessoa',
-    desc: 'Outro gigante dos lanches tradicionais e do Xis. Perfeito para um lanche rápido na madrugada ou fim de noite. Porções generosas, maionese caseira artesanal deliciosa.',
-    publico: 'Ambiente simples, focado em sabor, rapidez e fartura. Muito procurado por quem quer fugir dos preços turísticos do centro.',
-    dica: null
-  },
-  {
-    cat: 'Lanches Rápidos / Burgers',
-    catIcon: '🍔',
-    e: '🍟',
-    n: "McDonald's de Gramado",
-    selo: null,
-    faixa: 'Econômico',
-    preco: 'R$ 35 a R$ 55 por pessoa',
-    desc: 'Cardápio padrão mundial, mas com um diferencial único: a arquitetura. A unidade de Gramado parece um chalé europeu alpino de madeira, super fotogênico.',
-    publico: 'Ideal pra quem viaja com crianças que não abrem mão do McLanche Feliz, ou pra aquele lanche rápido. Vale a visita só pela fachada!',
-    dica: null
-  },
-
-  // ── CAFETERIAS ───────────────────────────────────────────────────────────
-  {
-    cat: 'Cafeterias',
-    catIcon: '☕',
-    e: '☕',
-    n: 'Quiero Café',
-    selo: 'MELHOR CUSTO-BENEFÍCIO',
-    faixa: 'Médio',
-    preco: 'R$ 35 a R$ 60 por pessoa',
-    desc: 'Cardápio gigantesco que atende desde o café da manhã até o jantar. Ótimos combos de café, lanches, waffles, doces e pratos expressos com preço muito competitivo para a região.',
-    publico: 'Ambiente moderno, atendimento rápido e ótimo para quem quer comer bem sem gastar muito. Abre cedo e fecha tarde — um verdadeiro coringa na viagem.',
-    dica: null
-  },
-  {
-    cat: 'Cafeterias',
-    catIcon: '☕',
-    e: '🧙‍♀️',
-    n: 'Casa da Velha Bruxa',
-    selo: null,
-    faixa: 'Moderado Alto',
-    preco: 'R$ 55 a R$ 90 por pessoa',
-    desc: 'Uma das docerias mais tradicionais e nostálgicas de Gramado, bem ao lado da Rua Torta. Famosa pelas sobremesas históricas feitas com chocolate artesanal Prawer, como o ícone "Sorvete ao Forno" e os waffles com calda quente.',
-    publico: 'Clássico da cidade, mas o preço acompanha a fama e a localização. Vale mais pela experiência histórica e pelo ponto turístico do que pelo custo-benefício puro.',
-    dica: 'As sobremesas e cafés aqui têm valor de grife — vá ciente disso. Foque no famoso "Sorvete ao Forno" para uma única indulgência inesquecível.'
-  },
-  {
-    cat: 'Cafeterias',
-    catIcon: '☕',
-    e: '⛪',
-    n: 'Padaria São Pedro',
-    selo: null,
-    faixa: 'Moderado Alto',
-    preco: 'R$ 40 a R$ 70 por pessoa',
-    desc: 'Localizada estrategicamente bem atrás da Igreja Matriz São Pedro. Oferece enorme variedade de salgados, folhados, tortas e as famosas cucas gaúchas frescas.',
-    publico: 'Por estar no ponto mais central e movimentado de Gramado, os preços são inflacionados. Vale pela conveniência de um lanche rápido entre um ponto turístico e outro — não espere preço de "padaria de bairro".',
-    dica: null
-  },
-
-  // ── RECREAÇÃO / ESPAÇO KIDS ──────────────────────────────────────────────
-  {
-    cat: 'Recreação / Espaço Kids',
-    catIcon: '🧸',
-    e: '🏰',
-    n: 'Restaurante Höppner',
-    selo: 'O MELHOR DA CIDADE',
-    faixa: 'Luxo',
-    preco: 'R$ 150 a R$ 250 por pessoa',
-    desc: 'Junto ao tradicional Hotel Ritta Höppner, é sinônimo de elegância. Serve o clássico café da tarde inglês e pratos alemães impecáveis. O espaço kids é de altíssimo padrão, com monitoria e brinquedos lúdicos.',
-    publico: 'Uma das experiências mais acolhedoras da cidade para quem viaja com crianças pequenas, unindo alta gastronomia com sossego para os pais.',
-    dica: null
-  },
-  {
-    cat: 'Recreação / Espaço Kids',
-    catIcon: '🧸',
-    e: '🍝',
-    n: 'Mamma Mia',
-    selo: 'MELHOR CUSTO-BENEFÍCIO',
-    faixa: 'Médio',
-    preco: 'R$ 95 a R$ 130 por pessoa',
-    desc: 'Uma das galeterias mais famosas da região. A fartura de massas, galetos e polentinhas agrada muito o paladar infantil. A unidade de Gramado tem um excelente espaço kids estruturado para os pequenos gastarem energia.',
-    publico: 'Perfeito para o clássico e farto almoço de domingo em família.',
-    dica: null
-  },
-  {
-    cat: 'Recreação / Espaço Kids',
-    catIcon: '🧸',
-    e: '🍇',
-    n: 'Campo & Vinho',
-    selo: null,
-    faixa: 'Econômico',
-    preco: 'R$ 60 a R$ 110 por pessoa',
-    desc: 'Super versátil. Durante o dia entrega um buffet livre completo com ótimo preço; à noite o foco vira as pizzas. Conta com uma área kids muito bem montada para entreter as crianças durante a refeição.',
-    publico: 'Opção prática, sem frescuras e muito cômoda para qualquer hora do dia.',
-    dica: 'Aproveite o melhor dos dois mundos: vá pra um almoço de buffet em família e volte outro dia pra noite de pizza.'
-  },
-  {
-    cat: 'Recreação / Espaço Kids',
-    catIcon: '🧸',
-    e: '🥩',
-    n: 'Steak House — Carne & Osso',
-    selo: null,
-    faixa: 'Moderado Alto',
-    preco: 'R$ 120 a R$ 180 por pessoa',
-    desc: 'Especializada em cortes de carnes premium, assados na brasa com muita precisão. Ambiente moderno e espaço kids seguro e estruturado para receber as famílias.',
-    publico: 'Ótima pedida para quem quer saborear uma carne de primeira linha enquanto os filhos brincam no espaço recreativo.',
-    dica: null
-  },
-  {
-    cat: 'Recreação / Espaço Kids',
-    catIcon: '🧸',
-    e: '🔥',
-    n: 'El Fuego',
-    selo: null,
-    faixa: 'Moderado Alto',
-    preco: 'R$ 130 a R$ 220 por pessoa',
-    desc: 'Restaurante tradicional bem no centro de Gramado, famoso por carnes e pela sequência de fondue. Possui área infantil planejada para que os pais consigam curtir o jantar (especialmente o ritual do fondue) com calma.',
-    publico: 'Localização imbatível no centro e excelente estrutura familiar.',
-    dica: null
-  },
-  {
-    cat: 'Recreação / Espaço Kids',
-    catIcon: '🧸',
-    e: '🌲',
-    n: 'The Petit',
-    selo: null,
-    faixa: 'Médio',
-    preco: 'R$ 70 a R$ 100 por pessoa',
-    desc: 'O ambiente acolhedor e intimista da Petit reserva um cantinho especial para os pequenos. Enquanto as pizzas de massa leve são servidas, as crianças têm espaço dedicado para se distrair.',
-    publico: 'Ótima opção para quem busca ambiente confortável com espaço kids, sem a aglomeração dos grandes rodízios.',
-    dica: null
-  },
-  {
-    cat: 'Recreação / Espaço Kids',
-    catIcon: '🧸',
-    e: '🍽️',
-    n: 'Dos Cocina',
-    selo: null,
-    faixa: 'Moderado Alto',
-    preco: 'R$ 120 a R$ 190 por pessoa',
-    desc: 'Pratos sofisticados, apresentações lindas e cardápio muito bem executado. O grande diferencial é conseguir aliar essa proposta gastronômica mais moderna com ótimo atendimento e espaço para crianças.',
-    publico: 'Ideal para os pais que não querem abrir mão de um jantar gastronômico sofisticado, mas precisam da comodidade de uma área infantil.',
-    dica: null
-  },
-];
+/* ═══ RESTAURANTES SECRETOS (BÔNUS EXCLUSIVO) ═══
+   O conteúdo (a lista em si) foi movido para o servidor: tabela
+   `restaurantes_secretos` protegida por RLS + endpoint /api/restaurantes-secretos
+   que valida a compra antes de devolver. Aqui ficam só os helpers de render. */
 
 function _faixaCor(faixa) {
   if (faixa === 'Econômico' || faixa === 'Baixo') return '#22c55e';
@@ -1250,7 +832,60 @@ function _faixaCifrao(faixa) {
   return '$';
 }
 
-function buildRestaurantesSecretos() {
+// Cache local do conteúdo pago (só chega aqui se o servidor confirmar a compra)
+let _restaurantesSecretosCache = null;
+
+// Busca o conteúdo PAGO no servidor (que valida a compra) e renderiza.
+// O array não vive mais no bundle — então não dá pra ler no DevTools sem comprar.
+async function buildRestaurantesSecretos() {
+  const body = document.getElementById('restaurantes-secretos-body');
+  if (!body) return;
+
+  if (_restaurantesSecretosCache) {
+    _renderRestaurantesSecretos(_restaurantesSecretosCache);
+    return;
+  }
+
+  body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">⏳ Carregando lista exclusiva...</div>';
+
+  try {
+    let token = null;
+    if (_supabase) {
+      const { data: { session } } = await _supabase.auth.getSession();
+      token = session && session.access_token;
+    }
+    if (!token) {
+      body.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted);font-size:13px;">Faça login para ver esta lista.</div>';
+      _builtOverlays.delete('overlay-restaurantes-secretos');
+      return;
+    }
+
+    const res = await fetch('/api/restaurantes-secretos', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    });
+
+    if (res.status === 403) {
+      body.innerHTML = `<div style="padding:48px 24px;text-align:center;">
+        <div style="font-size:40px;margin-bottom:12px;">🔒</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">Conteúdo exclusivo</div>
+        <div style="font-size:12px;color:var(--muted);line-height:1.6;">Esta lista faz parte do <strong style="color:#f0c020;">Bônus do Pobre</strong>. Adquira para liberar os Restaurantes Secretos.</div>
+      </div>`;
+      return; // mantém marcado: não precisa re-buscar enquanto não comprar
+    }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+
+    const data = await res.json();
+    _restaurantesSecretosCache = data.itens || [];
+    _renderRestaurantesSecretos(_restaurantesSecretosCache);
+  } catch (e) {
+    console.error('[restaurantes-secretos] erro ao carregar:', e);
+    body.innerHTML = '<div style="padding:40px;text-align:center;color:#f87171;font-size:13px;">Erro ao carregar a lista. Feche e abra de novo.</div>';
+    _builtOverlays.delete('overlay-restaurantes-secretos'); // permite retry
+  }
+}
+
+// Renderiza a lista a partir de um array de itens (recebido do servidor).
+function _renderRestaurantesSecretos(restaurantesSecretos) {
   const body = document.getElementById('restaurantes-secretos-body');
   if (!body) return;
 
@@ -2495,9 +2130,10 @@ function buildCatalogoSugestoes() {
     });
   }
 
-  // Restaurantes secretos
-  if (typeof restaurantesSecretos !== 'undefined') {
-    restaurantesSecretos.forEach(r => {
+  // Restaurantes secretos — só entram no autocomplete se o usuário comprou
+  // (o cache só é populado pelo endpoint após validar a compra no servidor).
+  if (Array.isArray(_restaurantesSecretosCache)) {
+    _restaurantesSecretosCache.forEach(r => {
       cat.push({
         nome: r.n || r.nome,
         emoji: r.e || '🍴',
