@@ -3,6 +3,7 @@
 // A senha NUNCA vai pro frontend — fica em Environment Variable do Vercel.
 
 const crypto = require('crypto');
+const { aplicarCors } = require('./_cors');
 
 // Gera um token simples assinado com HMAC. Não é JWT por simplicidade,
 // mas funciona pro caso de uso (validar que o cliente passou pela senha).
@@ -14,14 +15,8 @@ function gerarToken(secret) {
 }
 
 module.exports = async (req, res) => {
-  // CORS básico (caso futuramente o admin esteja em outro domínio)
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (aplicarCors(req, res, { methods: 'POST, OPTIONS' })) return;
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }

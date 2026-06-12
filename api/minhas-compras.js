@@ -1,80 +1,45 @@
 // /api/minhas-compras.js
-// Consulta as compras de um usuário pelo email.
-// Usado pelo app pra saber quais bônus mostrar liberados.
+// Consulta as compras do usuário LOGADO.
 //
-// Uso: GET /api/minhas-compras?email=fulano@exemplo.com
-// Retorna: { email: "fulano@exemplo.com", compras: ["roteiro_pdf", "restaurantes_secretos"] }
+// MUDANÇA DE SEGURANÇA: antes aceitava ?email=qualquer@coisa.com e devolvia
+// as compras daquele email, sem provar que o requisitante era o dono. Agora
+// exige o access_token do Supabase no header Authorization. O email é extraído
+// do TOKEN — ninguém consulta as compras de outra pessoa.
+//
+// Uso: GET /api/minhas-compras   (com header: Authorization: Bearer <token>)
+// Retorna: { email, compras: ["roteiro_pdf", "restaurantes_secretos"] }
+//
+// Env vars: SUPABASE_URL, SUPABASE_SERVICE_KEY, SUPABASE_ANON_KEY
 
-export default async function handler(req, res) {
-  // CORS — permite que o app (mesmo domínio) faça chamadas
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+const { aplicarCors } = require('./_cors');
+const { usuarioDoToken, comprasDoEmail } = require('./_auth');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
+module.exports = async (req, res) => {
+  if (aplicarCors(req, res, { methods: 'GET, OPTIONS' })) return;
 
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    console.error('[minhas-compras] Variáveis de ambiente faltando');
+    return res.status(500).json({ error: 'Server misconfigured' });
+  }
+
   try {
-    // 1. Validar email
-    const email = (req.query.email || '').toLowerCase().trim();
-
-    if (!email || !email.includes('@')) {
-      return res.status(400).json({ error: 'Email inválido' });
+    // Identidade vem do token, não da query string
+    const user = await usuarioDoToken(req);
+    if (!user) {
+      return res.status(401).json({ error: 'Não autorizado' });
     }
 
-    // 2. Consultar Supabase
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
+    const compras = await comprasDoEmail(user.email);
 
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('[minhas-compras] Variáveis de ambiente faltando');
-      return res.status(500).json({ error: 'Server misconfigured' });
-    }
-
-    // Busca todas as compras aprovadas desse email
-    const url = `${supabaseUrl}/rest/v1/compras?email=eq.${encodeURIComponent(email)}&status=eq.aprovado&select=produto`;
-
-    const dbRes = await fetch(url, {
-      headers: {
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
-      },
-    });
-
-    if (!dbRes.ok) {
-      const errText = await dbRes.text();
-      console.error('[minhas-compras] Erro Supabase:', dbRes.status, errText);
-      return res.status(500).json({ error: 'Database error' });
-    }
-
-    const rows = await dbRes.json();
-
-    // 3. Expandir "combo" pros 2 produtos individuais
-    const produtosSet = new Set();
-    for (const row of rows) {
-      if (row.produto === 'combo') {
-        produtosSet.add('roteiro_pdf');
-        produtosSet.add('restaurantes_secretos');
-      } else {
-        produtosSet.add(row.produto);
-      }
-    }
-
-    const compras = Array.from(produtosSet);
-
-    // 4. Resposta
-    return res.status(200).json({
-      email,
-      compras,
-    });
-
+    return res.status(200).json({ email: user.email, compras });
   } catch (err) {
     console.error('[minhas-compras] Erro inesperado:', err);
-    return res.status(500).json({ error: 'Internal error', message: err.message });
+    return res.status(500).json({ error: 'Internal error' });
   }
-}
+};
