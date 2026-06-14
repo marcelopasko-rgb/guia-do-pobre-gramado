@@ -76,17 +76,27 @@ module.exports = async function handler(req, res) {
 
     if (telefone) {
       if (evento === "order_approved") {
-        // Mensagem 1: boas-vindas + app + grupo VIP (com preview do app)
-        const msg1 = montarMensagemBoasVindas(primeiroNome);
-        whatsappResposta = await enviarWhatsAppLink(telefone, msg1);
-        whatsappEnviado = !whatsappResposta.error;
+        // Proteção contra order bump: a Kiwify dispara um segundo "order_approved"
+        // quando o cliente compra o order bump. Verificamos se já enviamos mensagem
+        // para este e-mail nos últimos 10 minutos — se sim, ignoramos o evento.
+        const jaEnviou = await jaRecebeuBoasVindas(email);
+        if (jaEnviou) {
+          console.log(`[webhook] order bump detectado para ${email} — mensagem NÃO enviada.`);
+          whatsappEnviado = false;
+          whatsappResposta = { skipped: "order_bump_duplicado" };
+        } else {
+          // Mensagem 1: boas-vindas + app + grupo VIP (com preview do app)
+          const msg1 = montarMensagemBoasVindas(primeiroNome);
+          whatsappResposta = await enviarWhatsAppLink(telefone, msg1);
+          whatsappEnviado = !whatsappResposta.error;
 
-        // Aguarda um tempo aleatório entre 10 e 30 segundos (parece mais orgânico)
-        await delay(delayAleatorio(10000, 30000));
+          // Aguarda um tempo aleatório entre 10 e 30 segundos (parece mais orgânico)
+          await delay(delayAleatorio(10000, 30000));
 
-        // Mensagem 2: serviços adicionais que o Marcelo oferece
-        const msg2 = montarMensagemServicos(primeiroNome);
-        await enviarWhatsApp(telefone, msg2);
+          // Mensagem 2: serviços adicionais que o Marcelo oferece
+          const msg2 = montarMensagemServicos(primeiroNome);
+          await enviarWhatsApp(telefone, msg2);
+        }
 
       } else if (evento === "carrinho_abandonado" || evento === "cart_abandoned") {
         // Só envia o abandono para quem NUNCA conversou no WhatsApp.
@@ -337,6 +347,38 @@ async function buscarMetadataChat(telefone) {
     }
   }
   return undefined; // nenhum caminho respondeu
+}
+
+// Verifica se já enviamos boas-vindas para este e-mail nos últimos 10 minutos.
+// Usado para bloquear o segundo "order_approved" disparado pelo order bump.
+async function jaRecebeuBoasVindas(email) {
+  if (!email) return false;
+
+  const dez_minutos_atras = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const url =
+    `${process.env.SUPABASE_URL}/rest/v1/whatsapp_notificacoes` +
+    `?email=eq.${encodeURIComponent(email)}` +
+    `&evento=eq.order_approved` +
+    `&whatsapp_enviado=eq.true` +
+    `&created_at=gte.${encodeURIComponent(dez_minutos_atras)}` +
+    `&limit=1`;
+
+  try {
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        Accept: "application/json",
+      },
+    });
+    const data = await resp.json();
+    return Array.isArray(data) && data.length > 0;
+  } catch (err) {
+    // Na dúvida, deixa passar — melhor mandar duplicado do que não mandar nada
+    console.warn("[jaRecebeuBoasVindas] erro na consulta:", err.message);
+    return false;
+  }
 }
 
 // Verifica se já existe uma conversa com esse número no WhatsApp.
