@@ -77,26 +77,60 @@ module.exports = async function handler(req, res) {
     if (telefone) {
       if (evento === "order_approved") {
         // Proteção contra order bump: a Kiwify dispara um segundo "order_approved"
-        // quando o cliente compra o order bump. Verificamos se já enviamos mensagem
-        // para este e-mail nos últimos 10 minutos — se sim, ignoramos o evento.
+        // quando o cliente compra o order bump. Verificamos se já existe qualquer
+        // registro para este e-mail nos últimos 10 minutos — se sim, ignoramos.
         const jaEnviou = await jaRecebeuBoasVindas(email);
         if (jaEnviou) {
           console.log(`[webhook] order bump detectado para ${email} — mensagem NÃO enviada.`);
-          whatsappEnviado = false;
-          whatsappResposta = { skipped: "order_bump_duplicado" };
-        } else {
-          // Mensagem 1: boas-vindas + app + grupo VIP (com preview do app)
-          const msg1 = montarMensagemBoasVindas(primeiroNome);
-          whatsappResposta = await enviarWhatsAppLink(telefone, msg1);
-          whatsappEnviado = !whatsappResposta.error;
-
-          // Aguarda um tempo aleatório entre 10 e 30 segundos (parece mais orgânico)
-          await delay(delayAleatorio(10000, 30000));
-
-          // Mensagem 2: serviços adicionais que o Marcelo oferece
-          const msg2 = montarMensagemServicos(primeiroNome);
-          await enviarWhatsApp(telefone, msg2);
+          // Registra o bump no Supabase mas sem enviar WhatsApp
+          await salvarSupabase({
+            evento: "order_bump_ignorado",
+            order_id: orderId,
+            nome: nomeCompleto,
+            email,
+            telefone,
+            produto,
+            valor,
+            codigo_pix: codigoPix,
+            whatsapp_enviado: false,
+            whatsapp_resposta: { skipped: "order_bump_duplicado" },
+            payload_completo: payload,
+          });
+          return res.status(200).json({ ok: true, evento: "order_bump_ignorado", whatsapp_enviado: false });
         }
+
+        // Salva no Supabase ANTES de enviar — isso garante que se dois eventos
+        // chegarem simultaneamente, o segundo encontra o registro e é bloqueado.
+        await salvarSupabase({
+          evento,
+          order_id: orderId,
+          nome: nomeCompleto,
+          email,
+          telefone,
+          produto,
+          valor,
+          codigo_pix: codigoPix,
+          whatsapp_enviado: false, // atualiza para true depois do envio
+          whatsapp_resposta: null,
+          payload_completo: payload,
+        });
+
+        // Mensagem 1: boas-vindas + app + grupo VIP (com preview do app)
+        const msg1 = montarMensagemBoasVindas(primeiroNome);
+        whatsappResposta = await enviarWhatsAppLink(telefone, msg1);
+        whatsappEnviado = !whatsappResposta.error;
+
+        // Aguarda um tempo aleatório entre 10 e 30 segundos (parece mais orgânico)
+        await delay(delayAleatorio(10000, 30000));
+
+        // Mensagem 2: serviços adicionais que o Marcelo oferece
+        const msg2 = montarMensagemServicos(primeiroNome);
+        await enviarWhatsApp(telefone, msg2);
+
+        // Atualiza o registro com o resultado real do envio
+        await atualizarEnvioSupabase(email, orderId, whatsappEnviado, whatsappResposta);
+
+        return res.status(200).json({ ok: true, evento, whatsapp_enviado: whatsappEnviado });
 
       } else if (evento === "carrinho_abandonado" || evento === "cart_abandoned") {
         // Só envia o abandono para quem NUNCA conversou no WhatsApp.
@@ -131,8 +165,8 @@ module.exports = async function handler(req, res) {
     }
 
     await salvarSupabase({
-      // Fallback: a coluna "evento" é NOT NULL no Supabase. Garante que um
-      // evento não reconhecido nunca derrube o insert.
+      // Este salvarSupabase cobre apenas carrinho_abandonado e outros eventos.
+      // O order_approved já retornou mais acima após salvar e atualizar o próprio registro.
       evento: evento || "desconhecido",
       order_id: orderId,
       nome: nomeCompleto,
@@ -359,7 +393,6 @@ async function jaRecebeuBoasVindas(email) {
     `${process.env.SUPABASE_URL}/rest/v1/whatsapp_notificacoes` +
     `?email=eq.${encodeURIComponent(email)}` +
     `&evento=eq.order_approved` +
-    `&whatsapp_enviado=eq.true` +
     `&criado_em=gte.${encodeURIComponent(dez_minutos_atras)}` +
     `&limit=1`;
 
@@ -446,6 +479,32 @@ async function enviarWhatsAppLink(telefone, mensagem) {
     return await resp.json();
   } catch (err) {
     return { error: err.message };
+  }
+}
+
+// Atualiza o registro de order_approved com o resultado real do envio.
+// Chamada após o envio para refletir se o WhatsApp foi enviado com sucesso.
+async function atualizarEnvioSupabase(email, orderId, whatsappEnviado, whatsappResposta) {
+  // Filtra pelo order_id se disponível, senão pelo email — o order_id é mais preciso
+  const filtro = orderId
+    ? `order_id=eq.${encodeURIComponent(orderId)}`
+    : `email=eq.${encodeURIComponent(email)}&evento=eq.order_approved&order=criado_em.desc&limit=1`;
+
+  const url = `${process.env.SUPABASE_URL}/rest/v1/whatsapp_notificacoes?${filtro}`;
+
+  try {
+    await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: process.env.SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        Prefer: "return=minimal",
+      },
+      body: JSON.stringify({ whatsapp_enviado: whatsappEnviado, whatsapp_resposta: whatsappResposta }),
+    });
+  } catch (err) {
+    console.warn("[atualizarEnvioSupabase] erro:", err.message);
   }
 }
 
