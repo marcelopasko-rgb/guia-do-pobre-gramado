@@ -151,7 +151,24 @@ module.exports = async function handler(req, res) {
         return res.status(200).json({ ok: true, evento, whatsapp_enviado: whatsappEnviado });
 
       } else if (evento === "carrinho_abandonado" || evento === "cart_abandoned") {
-        // Só envia o abandono para quem NUNCA conversou no WhatsApp.
+        // REGRA 1: não envia abandono para quem JÁ COMPROU (tem order_approved
+        // registrado por este email ou telefone). Quem comprou não deve receber
+        // cupom de recuperação.
+        const comprou = await jaComprou(email, telefone);
+
+        if (comprou) {
+          console.log(`[webhook] ${email || telefone} já comprou — abandono NÃO enviado.`);
+          whatsappEnviado = false;
+          whatsappResposta = { skipped: "ja_comprou" };
+          await salvarSupabase({
+            evento, order_id: orderId, nome: nomeCompleto, email, telefone, produto,
+            valor, codigo_pix: codigoPix, whatsapp_enviado: false,
+            whatsapp_resposta: whatsappResposta, payload_completo: payload,
+          });
+          return res.status(200).json({ ok: true, evento, whatsapp_enviado: false });
+        }
+
+        // REGRA 2: só envia o abandono para quem NUNCA conversou no WhatsApp.
         // Quem já trocou mensagem com você (contato existente) é pulado.
         const conversou = await jaConversou(telefone);
 
@@ -436,6 +453,41 @@ async function reservarEnvio(chave) {
   } catch (err) {
     console.warn("[reservarEnvio] erro na reserva:", err.message);
     return true;
+  }
+}
+
+// Verifica se este email OU telefone já tem uma compra aprovada registrada.
+// Usado para NÃO enviar recuperação de carrinho para quem já comprou.
+// Retorna true se encontrar pelo menos um order_approved.
+//
+// FALHA SEGURA: se a consulta falhar, retorna false (deixa enviar). O risco
+// de mandar um abandono a mais é menor do que travar a recuperação inteira.
+async function jaComprou(email, telefone) {
+  const partes = [];
+  if (email) partes.push(`email.eq.${encodeURIComponent(email)}`);
+  if (telefone) partes.push(`telefone.eq.${encodeURIComponent(telefone)}`);
+  if (partes.length === 0) return false;
+
+  const url =
+    `${process.env.SUPABASE_URL}/rest/v1/whatsapp_notificacoes` +
+    `?evento=eq.order_approved` +
+    `&or=(${partes.join(",")})` +
+    `&limit=1`;
+
+  try {
+    const resp = await fetch(url, {
+      method: "GET",
+      headers: {
+        apikey: process.env.SUPABASE_SERVICE_KEY,
+        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        Accept: "application/json",
+      },
+    });
+    const data = await resp.json();
+    return Array.isArray(data) && data.length > 0;
+  } catch (err) {
+    console.warn("[jaComprou] erro na consulta:", err.message);
+    return false;
   }
 }
 
