@@ -25,24 +25,35 @@ module.exports = async function handler(req, res) {
 
     // --- Detecção de evento ---
     // O tipo de evento EXPLÍCITO tem prioridade ABSOLUTA. A compra aprovada
-    // chega com webhook_event_type = "order_approved" — e também carrega um
-    // checkout_link. Por isso NÃO dá pra usar checkout_link como sinal de
-    // abandono: foi exatamente isso que fez o comprador receber a mensagem
-    // de abandono em vez da de confirmação.
-    // O carrinho abandonado é o único evento que NÃO traz tipo explícito e
-    // vem com status === "abandoned" no nível raiz (req.body chega achatado).
-    const tipoExplicito = payload.webhook_event_type || payload.event || null;
+    // chega com webhook_event_type = "order_approved".
+    // IMPORTANTE: a Kiwify pode mandar o payload aninhado dentro de "order"
+    // (ex.: payload.order.webhook_event_type) OU achatado no nível raiz.
+    // Tratamos os dois casos para não quebrar a extração.
+    const ordem = payload.order || payload;
+
+    const tipoExplicito =
+      payload.webhook_event_type || ordem.webhook_event_type || payload.event || null;
 
     const ehAbandono =
       !tipoExplicito &&
-      (payload.status === "abandoned" || payload.cart?.status === "abandoned");
+      (payload.status === "abandoned" ||
+        payload.cart?.status === "abandoned" ||
+        ordem.status === "abandoned");
 
     const evento = ehAbandono ? "carrinho_abandonado" : tipoExplicito;
 
     // --- Extração de dados do cliente (robusta) ---
-    // NÃO assumimos onde os dados estão. Procuramos em todas as fontes
-    // possíveis (top-level, cart, Customer, customer) e pegamos a 1ª que tiver.
-    const fontes = [payload, payload.cart, payload.Customer, payload.customer].filter(Boolean);
+    // NÃO assumimos onde os dados estão. Procuramos em todas as fontes possíveis
+    // (raiz, order, cart, Customer aninhado etc.) e pegamos a 1ª que tiver.
+    const fontes = [
+      payload,
+      ordem,
+      payload.cart,
+      payload.Customer,
+      ordem.Customer,
+      payload.customer,
+      ordem.customer,
+    ].filter(Boolean);
     const pega = (...chaves) => {
       for (const f of fontes) {
         for (const k of chaves) {
@@ -56,10 +67,18 @@ module.exports = async function handler(req, res) {
     const primeiroNome = nomeCompleto.split(" ")[0] || "amigo(a)";
     const email = pega("email");
     const telefone = limparTelefone(pega("mobile", "phone", "phone_number", "telefone", "cellphone"));
-    const produto = pega("product_name") || payload.Product?.product_name || null;
-    const valor = payload.Commissions?.charge_amount ? Number(payload.Commissions.charge_amount) / 100 : null;
+    const produto = pega("product_name") || ordem.Product?.product_name || null;
+    const comissoes = ordem.Commissions || payload.Commissions || null;
+    const valor = comissoes?.charge_amount ? Number(comissoes.charge_amount) / 100 : null;
     const orderId = pega("order_id", "checkout_id", "id") || payload.cart?.id || null;
-    const codigoPix = payload.pix_code || payload.payment?.pix_code || payload.payment?.pix_qr || null;
+    const codigoPix =
+      pega("pix_code") || payload.payment?.pix_code || payload.payment?.pix_qr || null;
+
+    // Chave de deduplicação: App + order bumps disparam vários "order_approved"
+    // com order_id DIFERENTE, mas com o MESMO email e MESMA approved_date.
+    // Essa chave é idêntica nos eventos da mesma compra, então serve de trava.
+    const dataAprovacao = pega("approved_date", "created_at") || new Date().toISOString().slice(0, 10);
+    const chaveDedup = `${email || telefone || "sem-id"}_${dataAprovacao}`.trim();
 
     // Link de recuperação: checkout_link costuma ser só o slug (ex: "fN5HZp2"),
     // precisa virar URL completa com o cupom de 25% e os dados do cliente
@@ -76,13 +95,16 @@ module.exports = async function handler(req, res) {
 
     if (telefone) {
       if (evento === "order_approved") {
-        // Proteção contra order bump: a Kiwify dispara um segundo "order_approved"
-        // quando o cliente compra o order bump. Verificamos se já existe qualquer
-        // registro para este e-mail nos últimos 10 minutos — se sim, ignoramos.
-        const jaEnviou = await jaRecebeuBoasVindas(email);
-        if (jaEnviou) {
-          console.log(`[webhook] order bump detectado para ${email} — mensagem NÃO enviada.`);
-          // Registra o bump no Supabase mas sem enviar WhatsApp
+        // Deduplicação ATÔMICA contra order bump.
+        // A Kiwify dispara um "order_approved" para CADA produto comprado
+        // (app + order bumps), todos com o mesmo email/horário mas order_id
+        // diferente. Reservamos a chave no banco: o 1º evento cria o registro
+        // e envia; os outros recebem conflito (409) do Postgres e são pulados.
+        // Isso elimina a race condition (não há janela entre "consultar" e "salvar").
+        const reservou = await reservarEnvio(chaveDedup);
+
+        if (!reservou) {
+          console.log(`[webhook] duplicado (order bump) para ${email} — mensagem NÃO enviada.`);
           await salvarSupabase({
             evento: "order_bump_ignorado",
             order_id: orderId,
@@ -99,22 +121,7 @@ module.exports = async function handler(req, res) {
           return res.status(200).json({ ok: true, evento: "order_bump_ignorado", whatsapp_enviado: false });
         }
 
-        // Salva no Supabase ANTES de enviar — isso garante que se dois eventos
-        // chegarem simultaneamente, o segundo encontra o registro e é bloqueado.
-        await salvarSupabase({
-          evento,
-          order_id: orderId,
-          nome: nomeCompleto,
-          email,
-          telefone,
-          produto,
-          valor,
-          codigo_pix: codigoPix,
-          whatsapp_enviado: false, // atualiza para true depois do envio
-          whatsapp_resposta: null,
-          payload_completo: payload,
-        });
-
+        // Primeiro evento da compra — envia normalmente.
         // Mensagem 1: boas-vindas + app + grupo VIP (com preview do app)
         const msg1 = montarMensagemBoasVindas(primeiroNome);
         whatsappResposta = await enviarWhatsAppLink(telefone, msg1);
@@ -127,8 +134,19 @@ module.exports = async function handler(req, res) {
         const msg2 = montarMensagemServicos(primeiroNome);
         await enviarWhatsApp(telefone, msg2);
 
-        // Atualiza o registro com o resultado real do envio
-        await atualizarEnvioSupabase(email, orderId, whatsappEnviado, whatsappResposta);
+        await salvarSupabase({
+          evento,
+          order_id: orderId,
+          nome: nomeCompleto,
+          email,
+          telefone,
+          produto,
+          valor,
+          codigo_pix: codigoPix,
+          whatsapp_enviado: whatsappEnviado,
+          whatsapp_resposta: whatsappResposta,
+          payload_completo: payload,
+        });
 
         return res.status(200).json({ ok: true, evento, whatsapp_enviado: whatsappEnviado });
 
@@ -383,34 +401,41 @@ async function buscarMetadataChat(telefone) {
   return undefined; // nenhum caminho respondeu
 }
 
-// Verifica se já enviamos boas-vindas para este e-mail nos últimos 10 minutos.
-// Usado para bloquear o segundo "order_approved" disparado pelo order bump.
-async function jaRecebeuBoasVindas(email) {
-  if (!email) return false;
-
-  const dez_minutos_atras = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-  const url =
-    `${process.env.SUPABASE_URL}/rest/v1/whatsapp_notificacoes` +
-    `?email=eq.${encodeURIComponent(email)}` +
-    `&evento=eq.order_approved` +
-    `&criado_em=gte.${encodeURIComponent(dez_minutos_atras)}` +
-    `&limit=1`;
+// Reserva atômica de envio. Tenta inserir a chave na tabela whatsapp_dedup.
+// - Se inserir (HTTP 201): é o PRIMEIRO evento da compra → retorna true (envia).
+// - Se der conflito (HTTP 409): a chave já existe (order bump) → retorna false (pula).
+// O Postgres garante a atomicidade pela PRIMARY KEY, então não há race condition
+// mesmo que os 3 eventos cheguem no mesmo instante.
+//
+// FALHA SEGURA: se a tabela não existir ou der erro de rede, retorna true (envia).
+// Melhor mandar duplicado do que travar todos os envios. Por isso é OBRIGATÓRIO
+// criar a tabela whatsapp_dedup no Supabase (SQL no final deste arquivo).
+async function reservarEnvio(chave) {
+  const url = `${process.env.SUPABASE_URL}/rest/v1/whatsapp_dedup`;
 
   try {
     const resp = await fetch(url, {
-      method: "GET",
+      method: "POST",
       headers: {
+        "Content-Type": "application/json",
         apikey: process.env.SUPABASE_SERVICE_KEY,
         Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        Accept: "application/json",
+        Prefer: "return=minimal",
       },
+      body: JSON.stringify({ chave }),
     });
-    const data = await resp.json();
-    return Array.isArray(data) && data.length > 0;
+
+    if (resp.status === 201) return true;  // reservou (primeiro evento)
+    if (resp.status === 409) return false; // duplicado (order bump)
+
+    // Qualquer outro status (tabela inexistente, erro do PostgREST etc.):
+    // loga e deixa passar, para não bloquear envios por engano de config.
+    const detalhe = await resp.text().catch(() => "");
+    console.warn(`[reservarEnvio] status inesperado ${resp.status}: ${detalhe}`);
+    return true;
   } catch (err) {
-    // Na dúvida, deixa passar — melhor mandar duplicado do que não mandar nada
-    console.warn("[jaRecebeuBoasVindas] erro na consulta:", err.message);
-    return false;
+    console.warn("[reservarEnvio] erro na reserva:", err.message);
+    return true;
   }
 }
 
@@ -482,32 +507,6 @@ async function enviarWhatsAppLink(telefone, mensagem) {
   }
 }
 
-// Atualiza o registro de order_approved com o resultado real do envio.
-// Chamada após o envio para refletir se o WhatsApp foi enviado com sucesso.
-async function atualizarEnvioSupabase(email, orderId, whatsappEnviado, whatsappResposta) {
-  // Filtra pelo order_id se disponível, senão pelo email — o order_id é mais preciso
-  const filtro = orderId
-    ? `order_id=eq.${encodeURIComponent(orderId)}`
-    : `email=eq.${encodeURIComponent(email)}&evento=eq.order_approved&order=criado_em.desc&limit=1`;
-
-  const url = `${process.env.SUPABASE_URL}/rest/v1/whatsapp_notificacoes?${filtro}`;
-
-  try {
-    await fetch(url, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        apikey: process.env.SUPABASE_SERVICE_KEY,
-        Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify({ whatsapp_enviado: whatsappEnviado, whatsapp_resposta: whatsappResposta }),
-    });
-  } catch (err) {
-    console.warn("[atualizarEnvioSupabase] erro:", err.message);
-  }
-}
-
 async function salvarSupabase(dados) {
   const url = `${process.env.SUPABASE_URL}/rest/v1/whatsapp_notificacoes`;
 
@@ -531,3 +530,18 @@ async function salvarSupabase(dados) {
     console.error("[supabase] Falha:", err.message);
   }
 }
+
+// =====================================================
+// ⚠️ OBRIGATÓRIO: rode este SQL no Supabase (SQL Editor)
+// antes de subir. Sem essa tabela a deduplicação não funciona
+// e as mensagens vão continuar duplicando.
+// =====================================================
+//
+// create table if not exists whatsapp_dedup (
+//   chave text primary key,
+//   criado_em timestamptz default now()
+// );
+//
+// (opcional) limpeza automática de chaves antigas, se quiser:
+// não é necessário — a tabela só cresce devagar (1 linha por compra).
+// =====================================================
