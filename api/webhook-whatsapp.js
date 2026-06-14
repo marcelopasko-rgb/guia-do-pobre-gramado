@@ -360,7 +360,7 @@ async function jaRecebeuBoasVindas(email) {
     `?email=eq.${encodeURIComponent(email)}` +
     `&evento=eq.order_approved` +
     `&whatsapp_enviado=eq.true` +
-    `&created_at=gte.${encodeURIComponent(dez_minutos_atras)}` +
+    `&criado_em=gte.${encodeURIComponent(dez_minutos_atras)}` +
     `&limit=1`;
 
   try {
