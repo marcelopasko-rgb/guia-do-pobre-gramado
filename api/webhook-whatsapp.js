@@ -76,17 +76,17 @@ module.exports = async function handler(req, res) {
 
     if (telefone) {
       if (evento === "order_approved") {
-        // Mensagem 1: boas-vindas + link do app (1 de 3 variações sorteadas)
-        const msg1 = escolherVariacao(variacoesBoasVindas)(primeiroNome);
-        whatsappResposta = await enviarWhatsApp(telefone, msg1);
+        // Mensagem 1: boas-vindas + app + grupo VIP (com preview do app)
+        const msg1 = montarMensagemBoasVindas(primeiroNome);
+        whatsappResposta = await enviarWhatsAppLink(telefone, msg1);
         whatsappEnviado = !whatsappResposta.error;
 
         // Aguarda um tempo aleatório entre 10 e 30 segundos (parece mais orgânico)
         await delay(delayAleatorio(10000, 30000));
 
-        // Mensagem 2: link do grupo VIP com preview (1 de 3 variações sorteadas)
-        const textoGrupo = escolherVariacao(variacoesGrupoVip)(primeiroNome);
-        await enviarWhatsAppLink(telefone, textoGrupo);
+        // Mensagem 2: serviços adicionais que o Marcelo oferece
+        const msg2 = montarMensagemServicos(primeiroNome);
+        await enviarWhatsApp(telefone, msg2);
 
       } else if (evento === "carrinho_abandonado" || evento === "cart_abandoned") {
         // Só envia o abandono para quem NUNCA conversou no WhatsApp.
@@ -144,9 +144,7 @@ module.exports = async function handler(req, res) {
 };
 
 // =====================================================
-// Variações de mensagens (compra aprovada)
-// Estruturas genuinamente diferentes para quebrar o
-// padrão de repetição detectado como spam.
+// Configuração
 // =====================================================
 
 const LINK_APP = "https://guia-do-pobre-gramado.vercel.app/";
@@ -155,162 +153,37 @@ const LINK_GRUPO = "https://chat.whatsapp.com/FWQr1VHGXMb52H69SXWzZq";
 // Cupom usado na recuperação de carrinho abandonado (25% OFF)
 const CUPOM_ABANDONO = "POBRE25";
 
-// 7 variações da mensagem de boas-vindas
-const variacoesBoasVindas = [
-  // Variação A — saudação, anúncio, link, instruções
-  (nome) =>
-    `Olá, ${nome}! 😊 Aqui é o Marcelo, do Guia do Pobre em Gramado.
+// =====================================================
+// Mensagens de compra aprovada (texto único, sem variações)
+// =====================================================
 
-Sua compra foi aprovada! 🎉
+// Mensagem 1 — boas-vindas + app + Grupo VIP (enviada com preview do app)
+function montarMensagemBoasVindas(nome) {
+  return `Olá, ${nome}! 😊 Aqui é o Marcelo, do Guia do Pobre em Gramado.
 
-Acesse seu app pelo link:
-${LINK_APP}
+Sua compra foi aprovada!
 
-Para fazer login, use o mesmo e-mail da compra. Se não conseguir clicar no link acima, salve meu número nos contatos e tente novamente.
+*Link do Aplicativo*: ${LINK_APP}
 
-Boa viagem e aproveite os cupons para economizar! 🥰`,
+(Para fazer login, use o mesmo e-mail da compra)
 
-  // Variação B — confirmação primeiro, login antes do link, fechamento curto
-  (nome) =>
-    `${nome}, deu tudo certo com seu pagamento! ✅
+Acesse também ao *Grupo VIP*! Nele enviamos *cupons exclusivos*, *dicas* e *ofertas* que você não vai encontrar em outro lugar!
 
-Seja muito bem-vindo(a) ao Guia do Pobre em Gramado — quem fala aqui é o Marcelo. Seu acesso já está liberado: basta entrar com o mesmo e-mail que você usou na compra.
+*Link Grupo VIP*: ${LINK_GRUPO}`;
+}
 
-👉 ${LINK_APP}
+// Mensagem 2 — serviços adicionais
+function montarMensagemServicos(nome) {
+  return `Além disso, ${nome}, caso precise de ajuda com:
 
-Dica: se o link não abrir de primeira, salva meu contato e tenta de novo.
+· *Transfer entre o Aeroporto → Gramado/Canela*
+· *Aluguel de Roupa*
+· *Indicação de Hospedagem*
+· *Cupons de Desconto*
+· *Dicas*
 
-Bora economizar em Gramado! 💚`,
-
-  // Variação C — conversacional, frases curtas, link no meio
-  (nome) =>
-    `Oi, ${nome}! Aqui é o Marcelo do Guia do Pobre em Gramado. 🙌
-
-Tô passando pra avisar que sua compra foi confirmada e seu app já está no ar:
-${LINK_APP}
-
-Pra acessar, é só entrar com o e-mail da compra. Caso o link não abra, salva meu número e clica de novo que funciona certinho.
-
-Aproveita bastante e boa viagem! 😄`,
-
-  // Variação D — tom mais formal, poucos emojis
-  (nome) =>
-    `Olá, ${nome}. Sou o Marcelo, responsável pelo Guia do Pobre em Gramado.
-
-Confirmo que seu pagamento foi aprovado e seu acesso já está disponível. Para entrar, utilize o mesmo e-mail informado na compra:
-
-${LINK_APP}
-
-Caso o link não abra ao toque, salve este contato e tente novamente. Qualquer dúvida, estou à disposição.
-
-Desejo uma excelente viagem!`,
-
-  // Variação E — entusiasmada, link logo no começo
-  (nome) =>
-    `${nome}, seja bem-vindo(a) ao Guia do Pobre em Gramado! 🎉
-
-Seu acesso já está liberado, é só clicar aqui:
-${LINK_APP}
-
-Entra com o mesmo e-mail da compra que cai direto. Se o link não abrir, salva meu contato e tenta de novo.
-
-Qualquer coisa me chama por aqui. Aproveita Gramado gastando pouco! 😍`,
-
-  // Variação F — pessoal e calorosa
-  (nome) =>
-    `${nome}, que alegria ter você aqui! 🥰 É o Marcelo falando, do Guia do Pobre em Gramado.
-
-Sua compra caiu certinho e já liberei tudo pra você. Pra abrir, use o e-mail da compra:
-${LINK_APP}
-
-Se por acaso o link travar, é só salvar meu número e clicar de novo.
-
-Vai por mim: dá pra curtir Gramado MUITO sem estourar o orçamento. Boa viagem! 😊`,
-
-  // Variação G — direta e enxuta
-  (nome) =>
-    `Oi ${nome}, é o Marcelo do Guia do Pobre em Gramado.
-
-Compra aprovada! Seu app está aqui:
-${LINK_APP}
-
-Login com o e-mail da compra. Se o link não abrir, salva meu contato e tenta de novo.
-
-Boa viagem! 🎉`,
-];
-
-// 7 variações da mensagem do Grupo VIP
-const variacoesGrupoVip = [
-  // Variação A
-  (nome) =>
-    `${nome}, tem mais uma coisa importante! 🎁
-
-Você também ganhou acesso ao nosso *Grupo VIP* no WhatsApp. É lá que rolam as dicas exclusivas, promoções e novidades de Gramado em primeira mão.
-
-Entra agora:
-${LINK_GRUPO}
-
-Te espero lá! 😉`,
-
-  // Variação B
-  (nome) =>
-    `Ah, ${nome}, não esquece disso! 👀
-
-Junto com o app você tem entrada no nosso *Grupo VIP* do WhatsApp — dicas que economizam de verdade, promoções e tudo o que acontece em Gramado em tempo real.
-
-Seu convite está aqui:
-${LINK_GRUPO}
-
-Nos vemos por lá!`,
-
-  // Variação C
-  (nome) =>
-    `E pra fechar, ${nome}: 💎
-
-Toda semana a gente compartilha promoção, dica exclusiva e novidade de Gramado no *Grupo VIP*. Você já pode entrar, é só clicar:
-${LINK_GRUPO}
-
-Bora pro grupo! 🤩`,
-
-  // Variação D — formal, poucos emojis
-  (nome) =>
-    `${nome}, um último aviso importante.
-
-Sua compra também inclui acesso ao nosso Grupo VIP no WhatsApp, onde compartilhamos dicas exclusivas, promoções e novidades de Gramado em primeira mão.
-
-Você pode entrar por aqui:
-${LINK_GRUPO}
-
-Será um prazer ter você no grupo.`,
-
-  // Variação E — começa pelo benefício
-  (nome) =>
-    `Quer economizar ainda mais em Gramado, ${nome}? 🤑
-
-No nosso *Grupo VIP* do WhatsApp saem promoções e dicas exclusivas que não vão pra mais ninguém. Seu acesso já está incluso:
-${LINK_GRUPO}
-
-Clica e entra, te espero lá!`,
-
-  // Variação F — casual e curta
-  (nome) =>
-    `Ah ${nome}, entra no nosso *Grupo VIP*! 🙌
-
-É onde rola promoção, dica e novidade de Gramado em tempo real.
-
-${LINK_GRUPO}
-
-Bora! 😄`,
-
-  // Variação G — curiosidade / FOMO
-  (nome) =>
-    `${nome}, você não vai querer ficar de fora dessa. 👇
-
-No *Grupo VIP* a galera recebe as melhores dicas e promoções de Gramado antes de todo mundo. E o seu acesso já está liberado:
-${LINK_GRUPO}
-
-Entra agora que tá começando! 🔥`,
-];
+Estou à disposição para te ajudar! 😊`;
+}
 
 // =====================================================
 // Variações da mensagem de recuperação (carrinho abandonado)
@@ -507,7 +380,8 @@ async function enviarWhatsApp(telefone, mensagem) {
   }
 }
 
-// Mensagem com link preview (grupo VIP)
+// Mensagem com link preview — agora aponta para o APP (não mais grupo VIP),
+// que é o card que aparece no topo da mensagem de boas-vindas.
 async function enviarWhatsAppLink(telefone, mensagem) {
   const url = `https://api.z-api.io/instances/${process.env.ZAPI_INSTANCE}/token/${process.env.ZAPI_TOKEN}/send-link`;
 
@@ -522,9 +396,9 @@ async function enviarWhatsAppLink(telefone, mensagem) {
         phone: telefone,
         message: mensagem,
         image: "https://guia-do-pobre-gramado.vercel.app/icone_512.png",
-        linkUrl: LINK_GRUPO,
-        title: "Grupo VIP - Guia do Pobre em Gramado",
-        linkDescription: "Dicas exclusivas, promoções e novidades de Gramado em tempo real.",
+        linkUrl: LINK_APP,
+        title: "Guia do Pobre em Gramado",
+        linkDescription: "guia-do-pobre-gramado.vercel.app",
       }),
     });
     return await resp.json();
